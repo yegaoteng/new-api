@@ -1,80 +1,76 @@
 export default {
-  async fetch(request) {
-    return handle(request);
+  async fetch(request, env) {
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Content-Type": "application/json"
+    };
+    if (request.method === "OPTIONS")
+      return new Response(null, { headers: cors });
+
+    const url = new URL(request.url);
+    const ac = url.searchParams.get("ac") || "";
+    const wd = (url.searchParams.get("wd") || "").trim().toLowerCase();
+    const ids = (url.searchParams.get("ids") || "").trim();
+    const pg = parseInt(url.searchParams.get("pg") || "1");
+
+    // 从 S3 拉你现有的 latest.json
+    const S3_JSON = "https://s3.hi168.com/hi168-25242-ttcarm4a-s/movies/latest.json?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=0WE7Y5ZRQJPHN2GCKDC5%2F20260618%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260618T100018Z&X-Amz-Expires=3600&X-Amz-Signature=b8e7bc4a12c6f35a49847c39d97c0e10f0f821fe239600472d10f90794687d69&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22latest.json%22&response-content-type=application%2Fjson&x-id=GetObject";
+    let raw;
+    try {
+      raw = await fetch(S3_JSON, { cf: { cacheEverything: true, cacheTtl: 300 } });
+      if (!raw.ok) throw new Error("拉取S3失败");
+      raw = (await raw.json()).list || [];
+    } catch {
+      return new Response(JSON.stringify({ code: 0, msg: "数据源异常" }), { status: 500, headers: cors });
+    }
+
+    let list = raw;
+
+    // 搜索
+    if (wd) {
+      list = raw.filter(v =>
+        (v.vod_name || "").includes(wd) ||
+        (v.vod_blurb || "").includes(wd)
+      );
+    }
+
+    // 按IDS过滤
+    if (ids && !wd) {
+      const idArr = ids.split(",");
+      list = raw.filter(v => idArr.includes(String(v.vod_id)));
+    }
+
+    // 分页（简单处理）
+    const limit = 20;
+    const start = (pg - 1) * limit;
+    list = list.slice(start, start + limit);
+
+    // MacCMS V10 标准返回
+    return new Response(JSON.stringify({
+      code: 1,
+      msg: "ok",
+      page: pg,
+      pagecount: 1,
+      limit: String(limit),
+      total: list.length,
+      list: list.map(v => ({
+        vod_id: v.vod_id,
+        vod_name: v.vod_name,
+        type_id: v.type_id,
+        type_name: v.type_name,
+        vod_en: v.vod_en,
+        vod_time: v.vod_time,
+        vod_remarks: v.vod_remarks,
+        vod_pic: v.vod_pic,
+        vod_blurb: v.vod_blurb,
+        vod_area: v.vod_area,
+        vod_lang: v.vod_lang,
+        vod_year: v.vod_year,
+        vod_actor: v.vod_actor,
+        vod_director: v.vod_director,
+        vod_play_from: v.vod_play_from,
+        vod_play_url: v.vod_play_url
+      }))
+    }), { headers: cors });
   }
 };
-
-/* ====== 配置区 ====== */
-const BUCKET = "hi168-25242-ttcarm4a-s"; // ✅ 你的桶名
-const KEY    = "movies/latest.json";     // ✅ S3 内路径
-const AK     = "U6WUPKLFGJ5DL0X1Y340";
-const SK     = "919lcpy4yCOzoIy7nvoWIz0WXhAcdgvMNzTgOXJC";
-const REGION = "us-east-1";
-const HOST   = "s3.hi168.com";
-/* ===================== */
-
-/* ====== AWS SigV4 ====== */
-function hex(b){
-  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
-}
-async function sha256(buf){
-  return crypto.subtle.digest("SHA-256", buf);
-}
-async function hmac(key,msg){
-  const k=typeof key==="string"
-    ?await crypto.subtle.importKey("raw",new TextEncoder().encode(key),{name:"HMAC",hash:"SHA-256"},false,["sign"])
-    :key;
-  return crypto.subtle.sign("HMAC",k,new TextEncoder().encode(msg));
-}
-async function signedGet(){
-  const now=new Date();
-  const d=now.toISOString().slice(0,10).replace(/-/g,"");
-  const amz=d+"T000000Z";
-  const uri=`/${BUCKET}/${KEY}`;
-  const ph=hex(await sha256(new Uint8Array(0)));
-  const cr=
-`GET\n${uri}\n\nhost:${HOST}\nx-amz-content-sha256:${ph}\nx-amz-date:${amz}\n\nhost;x-amz-content-sha256;x-amz-date\n${ph}`;
-  const ch=hex(await sha256(new TextEncoder().encode(cr)));
-  const sc=`${d}/${REGION}/s3/aws4_request`;
-  const st=`AWS4-HMAC-SHA256\n${amz}\n${sc}\n${ch}`;
-  let kd=await hmac("AWS4"+SK,d);
-  let kr=await hmac(kd,REGION);
-  let ks=await hmac(kr,"s3");
-  let ksig=await hmac(ks,"aws4_request");
-  const sig=hex(await hmac(ksig,st));
-  const auth=
-`AWS4-HMAC-SHA256 Credential=${AK}/${sc},SignedHeaders=host;x-amz-content-sha256;x-amz-date,Signature=${sig}`;
-  return fetch(`https://${HOST}${uri}`,{
-    headers:{
-      "Host":HOST,
-      "x-amz-date":amz,
-      "x-amz-content-sha256":ph,
-      "Authorization":auth
-    }
-  });
-}
-
-/* ====== Handler ====== */
-async function handle(req){
-  const url=new URL(req.url);
-  const cors={
-    "Content-Type":"application/json;charset=utf-8",
-    "Access-Control-Allow-Origin":"*"
-  };
-
-  if(url.pathname.includes("/provide/vod")){
-    try{
-      const res=await signedGet();
-      if(!res.ok) throw new Error("S3 "+res.status);
-      let data=await res.json();
-      let list=data.list||[];
-      const wd=url.searchParams.get("wd");
-      if(wd) list=list.filter(i=>(i.vod_name||"").includes(wd)||(i.vod_blurb||"").includes(wd));
-      data.total=list.length; data.list=list; data.code=1; data.msg="ok";
-      return new Response(JSON.stringify(data),{headers:cors});
-    }catch(e){
-      return new Response(JSON.stringify({code:-1,msg:e.message,list:[],total:0}),{status:500,headers:cors});
-    }
-  }
-  return new Response("Movie VOD API OK",{headers:cors});
-}
