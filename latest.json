@@ -1,0 +1,48 @@
+{
+      "code": 1,
+      "msg": "数据列表",
+      "page": 1,
+      "pagecount": 1,
+      "limit": "20",
+      "total": 3,
+      "list": [
+        {
+          "vod_id": 8915,
+          "vod_name": "仙逆",
+          "type_id": 29,
+          "type_name": "国产动漫",
+          "vod_en": "xianni",
+          "vod_time": "2026-06-14 19:27:49",
+          "vod_remarks": "更新至第145集",
+          "vod_play_from": "https://s3.hi168.com/hi168-25242-ttcarm4a-s/k.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=0WE7Y5ZRQJPHN2GCKDC5%2F20260618%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260618T100510Z&X-Amz-Expires=3600&X-Amz-Signature=d25bafb8fe3270acf21b12cef425636a1bc153d041a984f4a12cdd3117d710c0&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22k.mp4%22&response-content-type=application%2Fmp4&x-id=GetObject"
+        },
+        {
+          "vod_id": 77011,
+          "vod_name": "仙逆（短剧版）",
+          "type_id": 36,
+          "type_name": "短剧",
+          "vod_en": "xianniduanjuban",
+          "vod_time": "2026-01-03 15:42:30",
+          "vod_remarks": "已完结",
+          "vod_play_from": "dytt,dyttm3u8"
+        },
+        {
+          "vod_id": 46795,
+          "vod_name": "仙逆剧场版 神临之战",
+          "type_id": 29,
+          "type_name": "国产动漫",
+          "vod_en": "xiannijuchangbanshenlinzhizhan",
+          "vod_time": "2026-08-24 20:11:45",
+          "vod_remarks": "1080P国语",
+          "vod_play_from": "dytt,dyttm3u8"
+        }
+      ],
+      "class": [
+        { "type_id": 1, "type_pid": 0, "type_name": "电影片" },
+        { "type_id": 2, "type_pid": 0, "type_name": "连续剧" },
+        { "type_id": 3, "type_pid": 0, "type_name": "综艺片" },
+        { "type_id": 4, "type_pid": 0, "type_name": "动漫片" },
+        { "type_id": 6, "type_pid": 1, "type_name": "动作片" },
+        { "type_id": 7, "type_pid": 1, "type_name": "喜剧片" }
+      ]
+    }
