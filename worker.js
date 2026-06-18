@@ -14,7 +14,7 @@ export default {
     const pg = parseInt(url.searchParams.get("pg") || "1");
 
     // 从 S3 拉你现有的 latest.json
-    const S3_JSON = "https://s3.hi168.com/hi168-25242-ttcarm4a-s/movies/latest.json?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=0WE7Y5ZRQJPHN2GCKDC5%2F20260618%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260618T100018Z&X-Amz-Expires=3600&X-Amz-Signature=b8e7bc4a12c6f35a49847c39d97c0e10f0f821fe239600472d10f90794687d69&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22latest.json%22&response-content-type=application%2Fjson&x-id=GetObject";
+    const S3_JSON = "https://s3.hi168.com/hi168-25242-ttcarm4a-s/movies/latest.json?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=0WE7Y5ZRQJPHN2GCKDC5%2F20260618%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260618T100754Z&X-Amz-Expires=3600&X-Amz-Signature=37a7349c823c5de9ed46bd1906af762439084d5d3740e1b426ae6b81726a17ab&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22latest.json%22&response-content-type=application%2Fjson&x-id=GetObject";
     let raw;
     try {
       raw = await fetch(S3_JSON, { cf: { cacheEverything: true, cacheTtl: 300 } });
