@@ -1,6 +1,6 @@
 // 配置信息
 const CONFIG = {
-  ENDPOINT: "https://s3.hi168.com", // 你的 Hi168 地址
+  ENDPOINT: "http://s3.hi168.com", // 你的 Hi168 地址
   BUCKET: "hi168-25242-ttcarm4a-s", // 你的桶名
   ACCESS_KEY: "U6WUPKLFGJ5DL0X1Y340", // 替换为你的 AK
   SECRET_KEY: "919lcpy4yCOzoIy7nvoWIz0WXhAcdgvMNzTgOXJC"  // 替换为你的 SK
