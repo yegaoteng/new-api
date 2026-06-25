@@ -1,4 +1,4 @@
-import { AwsClient } from 'aws4fetch'
+
 
 // ====== 改成你自己的配置 ======
 const BUCKET_NAME = 'pastegugugaga'
