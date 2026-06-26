@@ -9,8 +9,8 @@ export default {
       }
 
       const BUCKET = env.B2_BUCKET_NAME || 'pastegugugaga';
-      const KEY_ID = 004d276434d8c0c0000000002;
-      const APP_KEY = K004o2BFIEsFi2nIm3iN6NhFW6yf6bg;
+      const KEY_ID = '004d276434d8c0c0000000002';
+      const APP_KEY = 'K004o2BFIEsFi2nIm3iN6NhFW6yf6bg';
       const DOWNLOAD_HOST = 'https://f004.backblazeb2.com';
 
       // 1️⃣ 每次请求都去 B2 拿授权（无 KV）
