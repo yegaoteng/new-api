@@ -29,34 +29,43 @@ export default {
         });
       }
 
-      const auth = await authRes.json();
+      const authData = await authRes.json();
+      const apiUrl = authData.apiUrl;
+      const downloadUrl = authData.downloadUrl;
+      const authorizationToken = authData.authorizationToken;
 
-      // 2️⃣ 构造 B2 下载地址
-      const b2Url = `${DOWNLOAD_HOST}/file/${BUCKET}/${filePath}`;
+      // 2️⃣ 获取上传/下载 URL（这里用 downloadUrl）
+      const fileRes = await fetch(
+        `${downloadUrl}/file/${BUCKET}/${filePath}`,
+        {
+          headers: {
+            Authorization: authorizationToken,
+          },
+        }
+      );
 
-      const b2Req = new Request(b2Url, {
-        method: request.method,
-        headers: {
-          Authorization: auth.authorizationToken,
-          ...(request.headers.get('Range')
-            ? { Range: request.headers.get('Range') }
-            : {}),
-        },
-      });
+      if (!fileRes.ok) {
+        return new Response('File not found or access denied: ' + (await fileRes.text()), {
+          status: fileRes.status,
+        });
+      }
 
-      // 3️⃣ 请求 B2
-      const b2Res = await fetch(b2Req);
+      // 3️⃣ 返回文件内容
+      const contentType = fileRes.headers.get('content-type') || 'application/octet-stream';
+      const contentLength = fileRes.headers.get('content-length');
+      const headers = {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000',
+      };
 
-      // 4️⃣ 返回给客户端 + 强缓存
-      const headers = new Headers(b2Res.headers);
-      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      if (contentLength) {
+        headers['Content-Length'] = contentLength;
+      }
 
-      return new Response(b2Res.body, {
-        status: b2Res.status,
-        headers,
-      });
-    } catch (err) {
-      return new Response(err.message, { status: 500 });
+      return new Response(fileRes.body, { headers });
+
+    } catch (e) {
+      return new Response('Internal Error: ' + e.message, { status: 500 });
     }
   },
 };
