@@ -1,70 +1,62 @@
-// ==========================================
-// B2 Private 免流代理 (完整修复版)
-// 适配 Bucket: pastegugugaga
-// 缓存: B2_AUTH_CACHE
-// ==========================================
-
 export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const path = url.pathname.slice(1); // 去掉开头的 /
+  async fetch(request, env) {
+    try {
+      const url = new URL(request.url);
+      const filePath = url.pathname.replace(/^\/+/, '');
 
-    // 1. 获取 B2 认证信息（带 KV 缓存）
-    let authData = null;
-    if (env.B2_AUTH_CACHE) {
-      const cached = await env.B2_AUTH_CACHE.get('token', 'json');
-      if (cached) {
-        authData = cached;
-      }
-    }
-
-    // 如果没有缓存，重新获取
-    if (!authData) {
-      const b2AuthUrl = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account";
-      const b2KeyId = env.B2_KEY_ID;
-      const b2AppKey = env.B2_APP_KEY;
-
-      if (!b2KeyId || !b2AppKey) {
-        return new Response("B2 账号信息未配置", { status: 500 });
+      if (!filePath) {
+        return new Response('Missing file path', { status: 400 });
       }
 
-      const authResponse = await fetch(b2AuthUrl, {
+      const BUCKET = env.B2_BUCKET_NAME || 'pastegugugaga';
+      const KEY_ID = env.B2_KEY_ID;
+      const APP_KEY = env.B2_APP_KEY;
+      const DOWNLOAD_HOST = 'https://f004.backblazeb2.com';
+
+      // 1️⃣ 每次请求都去 B2 拿授权（无 KV）
+      const authRes = await fetch(
+        'https://api.backblazeb2.com/b2api/v2/b2_authorize_account',
+        {
+          headers: {
+            Authorization: 'Basic ' + btoa(KEY_ID + ':' + APP_KEY),
+          },
+        }
+      );
+
+      if (!authRes.ok) {
+        return new Response('B2 Auth Failed: ' + (await authRes.text()), {
+          status: 500,
+        });
+      }
+
+      const auth = await authRes.json();
+
+      // 2️⃣ 构造 B2 下载地址
+      const b2Url = `${DOWNLOAD_HOST}/file/${BUCKET}/${filePath}`;
+
+      const b2Req = new Request(b2Url, {
+        method: request.method,
         headers: {
-          Authorization: "Basic " + btoa(b2KeyId + ":" + b2AppKey),
+          Authorization: auth.authorizationToken,
+          ...(request.headers.get('Range')
+            ? { Range: request.headers.get('Range') }
+            : {}),
         },
       });
 
-      if (!authResponse.ok) {
-        return new Response("B2 Auth Failed: " + await authResponse.text(), { status: 500 });
-      }
+      // 3️⃣ 请求 B2
+      const b2Res = await fetch(b2Req);
 
-      authData = await authResponse.json();
+      // 4️⃣ 返回给客户端 + 强缓存
+      const headers = new Headers(b2Res.headers);
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
 
-      // 缓存到 KV（安全写入，TTL 至少 60 秒）
-      if (env.B2_AUTH_CACHE) {
-        const ttl = 86400; // 24小时
-        await env.B2_AUTH_CACHE.put('token', JSON.stringify(authData), { expirationTtl: ttl });
-      }
+      return new Response(b2Res.body, {
+        status: b2Res.status,
+        headers,
+      });
+    } catch (err) {
+      return new Response(err.message, { status: 500 });
     }
-
-    // 2. 构造 B2 下载链接
-    const downloadUrl = `https://${authData.downloadUrl}/file/${authData.bucketId}/${path}`;
-    const b2Headers = {
-      Authorization: authData.authorizationToken,
-    };
-
-    // 3. 转发请求到 B2
-    const b2Response = await fetch(downloadUrl, {
-      method: request.method,
-      headers: b2Headers,
-      body: request.body,
-      redirect: "follow",
-    });
-
-    // 4. 返回响应
-    return new Response(b2Response.body, {
-      status: b2Response.status,
-      headers: b2Response.headers,
-    });
   },
 };
