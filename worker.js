@@ -41,14 +41,21 @@ export default {
         authData = await authResponse.json();
         
         // 将 Token 存入 KV，过期时间设为实际过期时间减去 60 秒 (防止边缘节点时间不同步)
-        const expiry = parseInt(authData.authorizationTokenExpirationTimestamp / 1000) - 60;
-        
-        // 注意：你需要创建一个名为 B2_AUTH_CACHE 的 KV Namespace 并绑定到这里
-        // 如果没有绑定 KV，这段代码会报错，请参考下方的“无KV版”修改
-        if (env.B2_AUTH_CACHE) {
-           await env.B2_AUTH_CACHE.put('token', JSON.stringify(authData), { expirationTtl: expiry });
-        }
-      } else {
+        const nowMs = Date.now();
+const ttlSeconds = Math.floor(
+  (authData.authorizationTokenExpirationTimestamp - nowMs) / 1000
+) - 60;
+
+// 防止负数或 0
+const safeTtl = Math.max(ttlSeconds, 60);
+
+if (env.B2_AUTH_CACHE) {
+  await env.B2_AUTH_CACHE.put('token', JSON.stringify(authData), {
+    expirationTtl: safeTtl
+  });
+}
+
+       else {
         authData = JSON.parse(authData);
       }
 
