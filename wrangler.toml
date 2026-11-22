@@ -1,3 +1,55 @@
-name = "lunatv-movie-api"
+# ============================================================
+# 不知名社区 · Wrangler 配置
+# 部署前把 database_id / id 换成你自己的（见 README 第 2、3 步）
+# ============================================================
+name = "buzhiming-community"
 main = "worker.js"
-compatibility_date = "2026-06-18"
+compatibility_date = "2025-01-01"
+
+# 允许 `import HTML from './index.html'` 把 HTML 当纯文本模块导入
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = false
+
+# D1：帖子 / 评论 / 点赞 / 举报 / 模组 / 用户
+[[d1_databases]]
+binding = "DB"
+database_name = "bzm-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# KV：会话、邮箱验证码、OAuth state、热度去重、限流
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# ------------------------------------------------------------
+# 非敏感配置，可以直接写在 [vars]
+# 密钥一律用 `wrangler secret put`，见 .dev.vars.example / README
+# ------------------------------------------------------------
+[vars]
+SITE_NAME          = "不知名社区"
+PAGE_SIZE          = "20"      # 每页帖子数（用户要求 20）
+MAX_UPLOAD_MB      = "10"      # 单张图片上限（Worker 中转，建议 5~10）
+HOT_DEDUP_SECONDS  = "300"     # 同一访客对同一帖子的浏览次数去重窗口；0 = 每次点击都计数
+SESSION_DAYS       = "30"      # 登录有效期
+
+# 站点自身域名：换成你实际绑定的域名，Prism 后台白名单必须填下面这个回调地址
+PRISM_BASE         = "https://auth.ffurry.cc.cd"
+PRISM_REDIRECT_URI = "https://community.example.com/api/auth/prism/callback"
+
+# 发件显示名（用户指定：不知名社区）
+BREVO_FROM_NAME    = "不知名社区"
+
+# B2：与 CF-Proxy-B2 Worker 的 images 组保持一致
+B2_ENDPOINT        = "https://s3.us-west-004.backblazeb2.com"
+B2_REGION          = "us-west-004"
+B2_BUCKET          = "buzhiming"
+B2_PROXY_ALIAS     = "images"                  # ← 必须等于 Worker BUCKETS_CONFIG 的别名
+B2_PUBLIC_BASE     = "https://b.yenb.cc.cd/"   # ← 你的 CF-Proxy-B2 代理域名
+
+# 首个用这些邮箱注册的账号自动成为管理员（逗号分隔，留空则不设）
+ADMIN_EMAILS       = ""
+
+# 本地调试用：设为 "1" 时 /api/auth/code 会把验证码回显给前端。生产环境务必删除或设为 0
+# DEV_SHOW_CODE   = "1"

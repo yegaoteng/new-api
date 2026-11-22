@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>不知名社区</title>
+<style>
+:root{
+  --primary:#5b6cf0;--primary-h:#4655d8;--primary-soft:#eef0ff;
+  --bg:#f5f6fb;--card:#fff;--text:#1e2230;--muted:#858ba0;--border:#e7e9f1;
+  --hover:#f7f8fd;--danger:#e5484d;--success:#12a06a;--warn:#e8930c;
+  --radius:14px;--shadow:0 1px 2px rgba(30,34,48,.04),0 6px 20px -8px rgba(30,34,48,.12);
+}
+html[data-theme="dark"]{
+  --primary:#8b96ff;--primary-h:#a3abff;--primary-soft:#272c50;
+  --bg:#111319;--card:#1a1e28;--text:#e9ebf3;--muted:#8b90a4;--border:#2a2f3d;
+  --hover:#232836;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -10px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased}
+a{color:var(--primary);text-decoration:none}
+button,input,textarea,select{font:inherit}
+img{max-width:100%}
+.hide{display:none!important}
+
+/* 顶栏 */
+.topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:10px;
+  height:56px;padding:0 14px;background:var(--card);border-bottom:1px solid var(--border)}
+.hamb{width:38px;height:38px;border:0;border-radius:10px;background:transparent;color:var(--text);
+  display:grid;place-items:center;cursor:pointer;flex:none}
+.hamb:hover{background:var(--hover)}
+.hamb svg{width:21px;height:21px}
+.brand{font-weight:800;font-size:16.5px;letter-spacing:.3px;margin-right:auto;cursor:pointer}
+.top-actions{display:flex;align-items:center;gap:8px}
+.avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;background:var(--primary-soft);
+  display:grid;place-items:center;color:var(--primary);font-weight:700;font-size:12px;flex:none;border:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+
+/* 抽屉 */
+.drawer-mask{position:fixed;inset:0;background:rgba(12,15,24,.45);z-index:60;opacity:0;pointer-events:none;transition:.2s}
+.drawer-mask.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:270px;max-width:84vw;background:var(--card);
+  z-index:61;transform:translateX(-102%);transition:transform .24s cubic-bezier(.2,.8,.3,1);
+  display:flex;flex-direction:column;box-shadow:8px 0 40px -12px rgba(0,0,0,.28)}
+.drawer.on{transform:none}
+.dr-head{padding:20px 18px 14px;border-bottom:1px solid var(--border)}
+.dr-head .t{font-weight:800;font-size:17px}
+.dr-head .s{font-size:12px;color:var(--muted);margin-top:2px}
+.dr-nav{padding:10px;overflow:auto;flex:1}
+.dr-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 13px;border:0;border-radius:10px;
+  background:transparent;color:var(--text);font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-bottom:3px}
+.dr-item:hover{background:var(--hover)}
+.dr-item.active{background:var(--primary-soft);color:var(--primary)}
+.dr-item svg{width:18px;height:18px;flex:none}
+.dr-foot{padding:12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+
+/* 布局 */
+.wrap{max-width:900px;margin:0 auto;padding:18px 14px 70px}
+.page-head{display:flex;align-items:center;gap:10px;margin:4px 0 16px;flex-wrap:wrap}
+.page-head h1{font-size:20px;margin:0;font-weight:800}
+.page-head .sub{font-size:12.5px;color:var(--muted)}
+.spacer{flex:1}
+
+/* 按钮 / 表单 */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 15px;
+  border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);
+  font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+.btn:hover{background:var(--hover);border-color:#cfd3e4}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-h);border-color:var(--primary-h)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--hover)}
+.btn.sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.input,textarea.input,select.input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
+  background:var(--bg);color:var(--text);outline:none;transition:.15s;font-size:14px}
+.input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(91,108,240,.14);background:var(--card)}
+textarea.input{resize:vertical;min-height:170px;line-height:1.7}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:inline-flex;background:var(--hover);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:8px;
+  font-size:13px;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--card);color:var(--primary);box-shadow:var(--shadow)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:6px 12px;border:1px solid var(--border);border-radius:999px;background:var(--card);
+  font-size:12.5px;cursor:pointer;color:var(--muted);user-select:none}
+.chip.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary);font-weight:600}
+.hint{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* 卡片列表 */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;margin-bottom:12px}
+.post-card{padding:15px 16px;cursor:pointer;transition:.15s}
+.post-card:hover{background:var(--hover)}
+.post-card .t{font-size:16px;font-weight:700;margin:0 0 6px;line-height:1.45;word-break:break-word}
+.post-card .ex{color:var(--muted);font-size:13px;line-height:1.65;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.post-card .meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:11px;font-size:12px;color:var(--muted)}
+.post-card .meta .au{display:flex;align-items:center;gap:6px;color:var(--text);font-weight:600}
+.post-thumb{width:100%;max-height:250px;object-fit:cover;display:block;background:var(--hover)}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;
+  background:var(--primary-soft);color:var(--primary)}
+.badge.gray{background:var(--hover);color:var(--muted)}
+
+/* 详情 */
+.detail{padding:20px 18px}
+.detail h1{font-size:22px;margin:0 0 10px;line-height:1.4;word-break:break-word}
+.detail .by{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;margin-bottom:18px}
+.article{font-size:15px;line-height:1.85;word-break:break-word}
+.article.plain{white-space:pre-wrap}
+.article h1,.article h2,.article h3{margin:22px 0 10px;line-height:1.4}
+.article h1{font-size:21px}.article h2{font-size:18px}.article h3{font-size:16px}
+.article p{margin:0 0 12px}
+.article ul,.article ol{margin:0 0 12px;padding-left:24px}
+.article blockquote{margin:0 0 12px;padding:8px 14px;border-left:3px solid var(--primary);
+  background:var(--hover);color:var(--muted);border-radius:0 8px 8px 0}
+.article code{background:var(--hover);padding:2px 6px;border-radius:5px;font-size:13px;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.article pre{background:var(--hover);border:1px solid var(--border);border-radius:10px;
+  padding:14px;overflow:auto;margin:0 0 14px}
+.article pre code{background:none;padding:0;font-size:13px;line-height:1.6}
+.article img{border-radius:10px;max-height:520px;object-fit:contain;background:var(--hover)}
+.article hr{border:0;border-top:1px solid var(--border);margin:18px 0}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
+.gallery img{width:100%;height:140px;object-fit:cover;border-radius:10px;border:1px solid var(--border);cursor:zoom-in}
+.action-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px;
+  border-top:1px solid var(--border);background:var(--hover)}
+.like-btn.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
+
+/* 评论 */
+.comment{padding:13px 18px;border-top:1px solid var(--border);display:flex;gap:10px}
+.comment .bd{flex:1;min-width:0}
+.comment .hd{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.comment .hd b{color:var(--text);font-size:13px}
+.comment .tx{white-space:pre-wrap;word-break:break-word;font-size:14px}
+.comment-form{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--border)}
+.comment-form textarea{flex:1;min-height:62px;resize:vertical}
+
+/* 热度榜 */
+.hot{margin-top:22px}
+.hot h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:7px}
+.hot-item{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+.hot-item:last-child{border-bottom:0}
+.hot-item:hover{background:var(--hover)}
+.rank{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:800;
+  background:var(--hover);color:var(--muted);flex:none}
+.rank.top{background:linear-gradient(135deg,#ff9a44,#ff5f6d);color:#fff}
+.hot-item .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:600}
+.hot-item .vv{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* 模组 */
+.mod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.mod-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.mod-card:hover{transform:translateY(-2px);border-color:var(--primary)}
+.mod-cover{height:130px;background:linear-gradient(135deg,var(--primary-soft),var(--hover));
+  display:grid;place-items:center;font-size:34px;color:var(--primary);overflow:hidden}
+.mod-cover img{width:100%;height:100%;object-fit:cover}
+.mod-body{padding:13px 14px}
+.mod-body .n{font-weight:700;font-size:15px;margin-bottom:5px;word-break:break-word}
+.mod-body .s{font-size:12.5px;color:var(--muted);line-height:1.6;height:40px;overflow:hidden}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.tag{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--hover);color:var(--muted)}
+.tag.v{background:var(--primary-soft);color:var(--primary)}
+
+/* 上传预览 */
+.up-grid{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}
+.up-item{position:relative;width:96px;height:96px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.up-item img{width:100%;height:100%;object-fit:cover}
+.up-item .x{position:absolute;top:3px;right:3px;width:20px;height:20px;border:0;border-radius:50%;
+  background:rgba(0,0,0,.65);color:#fff;font-size:13px;line-height:20px;cursor:pointer;text-align:center}
+.uploading{opacity:.5}
+
+/* 个人中心 */
+.profile{display:flex;gap:16px;align-items:center;padding:18px;flex-wrap:wrap}
+.profile .avatar{width:66px;height:66px;font-size:22px}
+.profile .info{flex:1;min-width:180px}
+.profile .info h2{margin:0 0 3px;font-size:18px}
+.profile .info .m{font-size:12.5px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border)}
+.stat{padding:13px;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:0}
+.stat b{display:block;font-size:18px}
+.stat span{font-size:11.5px;color:var(--muted)}
+.section{padding:18px;border-top:1px solid var(--border)}
+.section h3{margin:0 0 14px;font-size:15px}
+
+/* 登录 */
+.auth-wrap{max-width:430px;margin:22px auto}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto}
+.tabs button{border:0;background:transparent;padding:9px 12px;font-size:13.5px;font-weight:600;
+  color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}
+.tabs button.on{color:var(--primary);border-bottom-color:var(--primary)}
+.code-row{display:flex;gap:8px}
+.code-row .input{flex:1}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:18px 0}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.prism-btn{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:0}
+
+/* 分页 */
+.pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:18px 0;font-size:13px;color:var(--muted)}
+
+/* 空态 / 加载 */
+.empty{padding:60px 20px;text-align:center;color:var(--muted)}
+.empty .big{font-size:38px;opacity:.4;display:block;margin-bottom:8px}
+.loading{padding:50px;text-align:center;color:var(--muted)}
+
+/* 模态框 */
+.mask{position:fixed;inset:0;background:rgba(12,15,24,.5);z-index:80;display:grid;place-items:center;padding:18px}
+.modal{width:100%;max-width:420px;background:var(--card);border-radius:16px;padding:22px;
+  box-shadow:0 24px 60px -16px rgba(0,0,0,.45)}
+.modal h3{margin:0 0 6px;font-size:16px}
+.modal .desc{font-size:13px;color:var(--muted);margin:0 0 15px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.radio-list{display:flex;flex-direction:column;gap:6px}
+.radio-list label{display:flex;gap:9px;align-items:center;padding:8px 10px;border:1px solid var(--border);
+  border-radius:9px;cursor:pointer;font-size:13.5px}
+.radio-list label:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
+
+/* Toast */
+.toast-wrap{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:100;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{padding:10px 17px;border-radius:10px;background:#232736;color:#fff;font-size:13.5px;
+  box-shadow:0 10px 30px -8px rgba(0,0,0,.4);max-width:88vw;animation:tin .2s ease}
+.toast.err{background:#d33a40}.toast.ok{background:#0d9668}
+@keyframes tin{from{transform:translateY(-10px);opacity:0}to{transform:none;opacity:1}}
+
+/* 图片放大 */
+.lightbox{position:fixed;inset:0;background:rgba(8,10,16,.92);z-index:120;display:grid;place-items:center;padding:20px;cursor:zoom-out}
+.lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+
+@media(max-width:640px){
+  .wrap{padding:14px 10px 60px}
+  .row2{grid-template-columns:1fr}
+  .detail{padding:16px 14px}
+  .detail h1{font-size:19px}
+  .comment-form{flex-direction:column}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat:nth-child(2){border-right:0}
+  .page-head h1{font-size:18px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="hamb" id="hamb" aria-label="打开菜单">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <div class="brand" id="brand">不知名社区</div>
+  <div class="top-actions">
+    <button class="btn ghost sm" id="themeBtn" title="切换亮暗色">◐</button>
+    <button class="btn primary sm" id="loginBtn">登录</button>
+    <button class="avatar" id="meBtn" title="个人中心" style="display:none">?</button>
+  </div>
+</div>
+
+<div class="drawer-mask" id="drawerMask"></div>
+<aside class="drawer" id="drawer">
+  <div class="dr-head"><div class="t" id="drTitle">不知名社区</div><div class="s" id="drSub">欢迎来到这里</div></div>
+  <nav class="dr-nav" id="drNav"></nav>
+  <div class="dr-foot"><span id="drFoot">© 不知名社区</span></div>
+</aside>
+
+<main class="wrap" id="app"><div class="loading">加载中…</div></main>
+
+<div class="mask hide" id="mask"><div class="modal" id="modalBox"></div></div>
+<div class="toast-wrap" id="toastWrap"></div>
+<input type="file" id="filePicker" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/svg+xml" multiple hidden>
+
+<script>
+(function () {
+'use strict';
+
+/* ---------------- 基础 ---------------- */
+const $ = s => document.querySelector(s);
+const state = {
+  boot: null, me: null, route: null, page: 1, q: '',
+  postImages: [], modImage: '', modLoaders: [], postFormat: 'plain',
+  busy: false,
+};
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg, type){
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.textContent = msg;
+  $('#toastWrap').appendChild(el);
+  setTimeout(() => { el.style.transition='opacity .25s'; el.style.opacity='0'; }, 2400);
+  setTimeout(() => el.remove(), 2700);
+}
+function fmtTime(ts){
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  if (isNaN(d)) return '—';
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function fmtNum(n){ n = Number(n)||0; return n >= 10000 ? (n/10000).toFixed(1)+'w' : String(n); }
+function avatarHtml(u, size){
+  const cls = 'avatar' + (size ? ' lg' : '');
+  if (u && u.avatar) return `<span class="${cls}"><img src="${esc(u.avatar)}" alt="" onerror="this.style.display='none'"></span>`;
+  const ch = (u && (u.displayName || u.username)) ? (u.displayName || u.username).slice(0,1).toUpperCase() : '?';
+  return `<span class="${cls}">${esc(ch)}</span>`;
+}
+async function api(path, opts){
+  const o = Object.assign({ method: 'GET', headers: {} }, opts || {});
+  const raw = o.body && (o.body instanceof ArrayBuffer || o.body instanceof Blob ||
+    (typeof FormData !== 'undefined' && o.body instanceof FormData));
+  if (o.body && !raw && typeof o.body !== 'string') {
+    o.headers['Content-Type'] = 'application/json';
+    o.body = JSON.stringify(o.body);
+  }
+  const res = await fetch(path, o);
+  let d;
+  try { d = await res.json(); } catch { throw new Error('服务器返回异常（HTTP ' + res.status + '）'); }
+  if (!d.ok) {
+    const e = new Error(d.error || '请求失败');
+    e.code = d.code; e.status = res.status;
+    throw e;
+  }
+  return d;
+}
+function go(hash){ if (location.hash === hash) renderRoute(); else location.hash = hash; }
+function needLogin(){ if (!state.me) { toast('请先登录', 'err'); go('#/login'); return false; } return true; }
+
+/* ---------------- 抽屉 ---------------- */
+const ICON = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  fire: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-1 .5-2 1-3 0 2 1 3 2 3 0-3-1-5 1-8z"/><path d="M12 22a7 7 0 0 0 7-7c0-3-2-5-3-7 0 3-1 4-2 5-1-2-1-4-1-6-3 2-8 5-8 11a7 7 0 0 0 7 4z"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+};
+function navItems(){
+  const arr = [
+    { k:'community', label:'社区', icon:ICON.home, hash:'#/community' },
+    { k:'new',       label:'发布帖子', icon:ICON.plus, hash:'#/new' },
+    { k:'mods',      label:'模组中心', icon:ICON.box, hash:'#/mods' },
+    { k:'modnew',    label:'发布模组', icon:ICON.plus, hash:'#/mod/new' },
+    { k:'me',        label:'个人中心', icon:ICON.user, hash:'#/me' },
+  ];
+  return arr;
+}
+function renderDrawer(){
+  const cur = (state.route && state.route.name) || 'community';
+  $('#drNav').innerHTML = navItems().map(it =>
+    `<button class="dr-item ${cur === it.k ? 'active' : ''}" data-hash="${it.hash}">${it.icon}<span>${esc(it.label)}</span></button>`
+  ).join('') + (state.me
+    ? `<button class="dr-item" id="drLogout">${ICON.out}<span>退出登录</span></button>` : '');
+  $('#drNav').querySelectorAll('[data-hash]').forEach(b => b.onclick = () => { closeDrawer(); go(b.dataset.hash); });
+  const lo = $('#drLogout');
+  if (lo) lo.onclick = async () => {
+    try { await api('/api/auth/logout', { method:'POST' }); } catch (_) {}
+    state.me = null; closeDrawer(); updateTop(); toast('已退出登录', 'ok'); go('#/community');
+  };
+}
+function openDrawer(){ renderDrawer(); $('#drawer').classList.add('on'); $('#drawerMask').classList.add('on'); }
+function closeDrawer(){ $('#drawer').classList.remove('on'); $('#drawerMask').classList.remove('on'); }
+function updateTop(){
+  $('#brand').textContent = (state.boot && state.boot.siteName) || '不知名社区';
+  document.title = (state.boot && state.boot.siteName) || '不知名社区';
+  const has = !!state.me;
+  $('#loginBtn').style.display = has ? 'none' : '';
+  $('#meBtn').style.display = has ? '' : 'none';
+  if (has) $('#meBtn').innerHTML = avatarHtml(state.me).replace(/^<span class="avatar">|<\/span>$/g, '');
+  $('#drSub').textContent = has ? ('你好，' + (state.me.displayName || state.me.username)) : '登录后可发帖、评论和点赞';
+  $('#drFoot').textContent = '© ' + ((state.boot && state.boot.siteName) || '不知名社区');
+  $('#drTitle').textContent = (state.boot && state.boot.siteName) || '不知名社区';
+}
+
+/* ---------------- 模态框 ---------------- */
+let modalResolve = null;
+function openModal(html){
+  $('#modalBox').innerHTML = html;
+  $('#mask').classList.remove('hide');
+  return new Promise(r => { modalResolve = r; });
+}
+function closeModal(v){ $('#mask').classList.add('hide'); if (modalResolve) { modalResolve(v); modalResolve = null; } }
+$('#mask').addEventListener('click', e => { if (e.target === $('#mask')) closeModal(null); });
+
+/* ---------------- Markdown（先转义，再解析，杜绝 XSS） ---------------- */
+function safeUrl(u){
+  const s = String(u || '').trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith('/') && !s.startsWith('//')) return s;
+  return '#';
+}
+function inline(s){
+  return s
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, a, u) => `<img src="${safeUrl(u)}" alt="${a}" loading="lazy">`)
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, u) => `<a href="${safeUrl(u)}" target="_blank" rel="noopener noreferrer">${t}</a>`)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+}
+function mdToHtml(src){
+  const codes = [];
+  let s = String(src || '').replace(/```([\w+-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    codes.push(`<pre><code data-lang="${esc(lang)}">${esc(code)}</code></pre>`);
+    return '\u0001CODE' + (codes.length - 1) + '\u0001';
+  });
+  s = esc(s);
+  const lines = s.split('\n');
+  let out = '', para = [], list = null, quote = [];
+  const flushPara = () => { if (para.length) { out += '<p>' + inline(para.join('<br>')) + '</p>'; para = []; } };
+  const flushList = () => { if (list) { out += `<${list}>` + listBuf.join('') + `</${list}>`; list = null; listBuf = []; } };
+  const flushQuote = () => { if (quote.length) { out += '<blockquote>' + inline(quote.join('<br>')) + '</blockquote>'; quote = []; } };
+  let listBuf = [];
+  for (let raw of lines) {
+    const line = raw.replace(/\s+$/, '');
+    if (/^\u0001CODE\d+\u0001$/.test(line.trim())) {
+      flushPara(); flushList(); flushQuote();
+      out += codes[Number(line.trim().match(/CODE(\d+)/)[1])];
+      continue;
+    }
+    if (line.trim() === '') { flushPara(); flushList(); flushQuote(); continue; }
+    if (/^(-{3,}|\*{3,})$/.test(line.trim())) { flushPara(); flushList(); flushQuote(); out += '<hr>'; continue; }
+    let m;
+    if ((m = line.match(/^(#{1,6})\s+(.*)$/))) {
+      flushPara(); flushList(); flushQuote();
+      const n = m[1].length; out += `<h${n}>${inline(m[2])}</h${n}>`; continue;
+    }
+    if ((m = line.match(/^&gt;\s?(.*)$/))) {
+      flushPara(); flushList(); quote.push(m[1]); continue;
+    }
+    if ((m = line.match(/^\s*[-*+]\s+(.*)$/))) {
+      flushPara(); flushQuote();
+      if (list !== 'ul') { flushList(); list = 'ul'; }
+      listBuf.push('<li>' + inline(m[1]) + '</li>'); continue;
+    }
+    if ((m = line.match(/^\s*\d+\.\s+(.*)$/))) {
+      flushPara(); flushQuote();
+      if (list !== 'ol') { flushList(); list = 'ol'; }
+      listBuf.push('<li>' + inline(m[1]) + '</li>'); continue;
+    }
+    flushList(); flushQuote(); para.push(line);
+  }
+  flushPara(); flushList(); flushQuote();
+  return out;
+}
+
+/* ---------------- 图片上传 ---------------- */
+let uploadTarget = 'post';   // post | mod | avatar
+function pickImages(target){ uploadTarget = target; $('#filePicker').click(); }
+$('#filePicker').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length) return;
+  if (!needLogin()) return;
+  const maxMB = (state.boot && state.boot.maxUploadMB) || 10;
+  for (const f of files) {
+    if (f.size > maxMB * 1024 * 1024) { toast(`${f.name} 超过 ${maxMB}MB`, 'err'); continue; }
+    toast('正在上传 ' + f.name);
+    try {
+      const d = await api('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(f.name) },
+        body: f,
+      });
+      if (uploadTarget === 'post') { state.postImages.push(d.url); renderUpGrid(); }
+      else if (uploadTarget === 'mod') { state.modImage = d.url; renderModImage(); }
+      else if (uploadTarget === 'avatar') { $('#avatarUrl').value = d.url; $('#avatarPreview').innerHTML = avatarHtml({ avatar: d.url }); toast('头像已上传，记得点保存', 'ok'); }
+      toast('上传完成', 'ok');
+    } catch (err) { toast('上传失败：' + err.message, 'err'); }
+  }
+});
+function renderUpGrid(){
+  $('#upGrid').innerHTML = state.postImages.map((u, i) =>
+    `<div class="up-item"><img src="${esc(u)}" alt=""><button class="x" data-i="${i}">×</button></div>`).join('');
+  $('#upGrid').querySelectorAll('.x').forEach(b => b.onclick = () => { state.postImages.splice(Number(b.dataset.i),1); renderUpGrid(); });
+}
+function renderModImage(){
+  $('#modImageBox').innerHTML = state.modImage
+    ? `<div class="up-item"><img src="${esc(state.modImage)}" alt=""><button class="x" id="modImgX">×</button></div>`
+    : '';
+  const x = $('#modImgX');
+  if (x) x.onclick = () => { state.modImage = ''; renderModImage(); };
+}
+function lightbox(src){
+  const d = document.createElement('div');
+  d.className = 'lightbox';
+  d.innerHTML = `<img src="${esc(src)}" alt="">`;
+  d.onclick = () => d.remove();
+  document.body.appendChild(d);
+}
+
+/* ---------------- 热度榜 ---------------- */
+async function renderHot(container){
+  try {
+    const d = await api('/api/hot?limit=10');
+    if (!d.items.length) { container.innerHTML = ''; return; }
+    container.innerHTML = `<div class="hot"><h2>${ICON.fire} 热度排行榜 <span class="hint" style="font-weight:400">· 按点进帖子的次数</span></h2>
+      <div class="card">${d.items.map((x, i) => `
+        <div class="hot-item" data-id="${esc(x.id)}">
+          <span class="rank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+          <span class="tt">${esc(x.title)}</span>
+          <span class="vv">${fmtNum(x.views)} 浏览 · ${fmtNum(x.likes)} 赞</span>
+        </div>`).join('')}</div></div>`;
+    container.querySelectorAll('[data-id]').forEach(el => el.onclick = () => go('#/post/' + el.dataset.id));
+  } catch (_) { container.innerHTML = ''; }
+}
+
+/* ---------------- 视图：社区 ---------------- */
+async function viewCommunity(){
+  state.page = 1;
+  $('#app').innerHTML = `
+    <div class="page-head"><h1>社区</h1><span class="sub">每页 ${(state.boot&&state.boot.pageSize)||20} 条 · 按最新发布排序</span><span class="spacer"></span>
+      <button class="btn primary sm" id="toNew">${ICON.plus} 发帖</button></div>
+    <div class="card" style="padding:10px 12px;display:flex;gap:8px;margin-bottom:14px">
+      <input class="input" id="searchQ" placeholder="搜索帖子标题或内容…" value="${esc(state.q)}">
+      <button class="btn sm" id="searchBtn">搜索</button>
+      ${state.q ? '<button class="btn ghost sm" id="clearQ">清除</button>' : ''}
+    </div>
+    <div id="list"><div class="loading">加载中…</div></div>
+    <div class="pager" id="pager"></div>
+    <div id="hotBox"></div>`;
+  $('#toNew').onclick = () => { if (needLogin()) go('#/new'); };
+  const doSearch = () => { state.q = $('#searchQ').value.trim(); state.page = 1; loadPosts(); };
+  $('#searchBtn').onclick = doSearch;
+  $('#searchQ').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  const cq = $('#clearQ'); if (cq) cq.onclick = () => { state.q = ''; $('#searchQ').value = ''; state.page = 1; loadPosts(); };
+  renderHot($('#hotBox'));
+  await loadPosts();
+}
+async function loadPosts(){
+  const box = $('#list');
+  if (!box) return;
+  box.innerHTML = '<div class="loading">加载中…</div>';
+  try {
+    const d = await api(`/api/posts?page=${state.page}&q=${encodeURIComponent(state.q)}`);
+    if (!d.items.length) {
+      box.innerHTML = `<div class="card empty"><span class="big">📝</span>${state.q ? '没有找到相关帖子' : '还没有帖子，来发第一帖吧'}</div>`;
+    } else {
+      box.innerHTML = d.items.map(p => `
+        <div class="card post-card" data-id="${esc(p.id)}">
+          ${p.images && p.images[0] ? `<img class="post-thumb" src="${esc(p.images[0])}" alt="" loading="lazy">` : ''}
+          <div style="padding:15px 16px">
+            <div class="t">${esc(p.title)}</div>
+            <div class="ex">${esc(p.excerpt)}</div>
+            <div class="meta">
+              <span class="au">${avatarHtml(p.author)} ${esc(p.author.displayName)}</span>
+              <span>${fmtTime(p.createdAt)}</span>
+              ${p.format === 'markdown' ? '<span class="badge">Markdown</span>' : ''}
+              <span class="spacer"></span>
+              <span>👁 ${fmtNum(p.views)}</span><span>♥ ${fmtNum(p.likes)}</span><span>💬 ${fmtNum(p.commentCount)}</span>
+            </div>
+          </div>
+        </div>`).join('');
+      box.querySelectorAll('[data-id]').forEach(el => el.onclick = () => go('#/post/' + el.dataset.id));
+    }
+    const pg = $('#pager');
+    if (pg) {
+      pg.innerHTML = `<button class="btn sm" id="prevP" ${state.page <= 1 ? 'disabled' : ''}>上一页</button>
+        <span>第 ${d.page} 页 · 共 ${d.total} 条</span>
+        <button class="btn sm" id="nextP" ${d.hasMore ? '' : 'disabled'}>下一页</button>`;
+      $('#prevP').onclick = () => { if (state.page > 1) { state.page--; loadPosts(); window.scrollTo(0,0); } };
+      $('#nextP').onclick = () => { if (d.hasMore) { state.page++; loadPosts(); window.scrollTo(0,0); } };
+    }
+  } catch (e) { box.innerHTML = `<div class="card empty">加载失败：${esc(e.message)}</div>`; }
+}
+
+/* ---------------- 视图：帖子详情 ---------------- */
+async function viewPost(id){
+  $('#app').innerHTML = '<div class="loading">加载中…</div>';
+  let d;
+  try { d = await api('/api/posts/' + encodeURIComponent(id)); }
+  catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}<br><br><button class="btn" onclick="location.hash='#/community'">返回社区</button></div>`; return; }
+  const p = d.post;
+  const bodyHtml = p.format === 'markdown' ? mdToHtml(p.body) : esc(p.body);
+  $('#app').innerHTML = `
+    <div class="card detail">
+      <h1>${esc(p.title)}</h1>
+      <div class="by">${avatarHtml(p.author)} <b>${esc(p.author.displayName)}</b> · ${fmtTime(p.createdAt)} · 👁 ${fmtNum(p.views)} 浏览 ${p.format === 'markdown' ? '· <span class="badge">Markdown</span>' : ''}</div>
+      <div class="article ${p.format === 'markdown' ? '' : 'plain'}">${bodyHtml}</div>
+      ${p.images && p.images.length ? `<div class="gallery">${p.images.map(u => `<img src="${esc(u)}" alt="" loading="lazy">`).join('')}</div>` : ''}
+      <div class="action-bar" style="margin:16px -18px -20px">
+        <button class="btn sm ${p.liked ? 'like-btn on' : ''}" id="likeBtn">${p.liked ? '♥ 已点赞' : '♡ 点赞'} · <span id="likeNum">${fmtNum(p.likes)}</span></button>
+        <button class="btn sm" id="reportBtn">⚑ 举报</button>
+        <span class="spacer"></span>
+        <button class="btn sm ghost" onclick="location.hash='#/community'">← 返回社区</button>
+      </div>
+    </div>
+    <div class="card"><div style="padding:14px 18px;font-weight:700">💬 评论 <span class="hint" id="ccNum">(${fmtNum(p.commentCount)})</span></div>
+      <div id="comments"><div class="loading">加载中…</div></div>
+      <div class="comment-form">
+        <textarea class="input" id="commentInput" placeholder="${state.me ? '写下你的评论…' : '登录后才能评论'}" ${state.me ? '' : 'disabled'}></textarea>
+        <button class="btn primary" id="commentBtn" ${state.me ? '' : 'disabled'}>发送</button>
+      </div>
+    </div>
+    <div id="hotBox"></div>`;
+  $('#app').querySelectorAll('.gallery img').forEach(img => img.onclick = () => lightbox(img.src));
+  $('#likeBtn').onclick = async () => {
+    if (!needLogin()) return;
+    try {
+      const r = await api(`/api/posts/${p.id}/like`, { method:'POST' });
+      $('#likeBtn').classList.toggle('like-btn'); $('#likeBtn').classList.toggle('on');
+      $('#likeBtn').innerHTML = (r.liked ? '♥ 已点赞' : '♡ 点赞') + ' · <span id="likeNum">' + fmtNum(r.likes) + '</span>';
+      toast(r.liked ? '已点赞' : '已取消点赞', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+  };
+  $('#reportBtn').onclick = () => reportDialog('post', p.id);
+  $('#commentBtn').onclick = async () => {
+    if (!needLogin()) return;
+    const t = $('#commentInput').value.trim();
+    if (!t) { toast('评论不能为空', 'err'); return; }
+    $('#commentBtn').disabled = true;
+    try {
+      await api(`/api/posts/${p.id}/comments`, { method:'POST', body:{ content:t } });
+      $('#commentInput').value = ''; toast('评论已发布', 'ok'); await loadComments(p.id);
+    } catch (e) { toast(e.message, 'err'); }
+    finally { $('#commentBtn').disabled = false; }
+  };
+  renderHot($('#hotBox'));
+  await loadComments(p.id);
+}
+async function loadComments(id){
+  const box = $('#comments');
+  if (!box) return;
+  try {
+    const d = await api(`/api/posts/${id}/comments`);
+    box.innerHTML = d.items.length ? d.items.map(c => `
+      <div class="comment">${avatarHtml(c.author)}<div class="bd">
+        <div class="hd"><b>${esc(c.author.displayName)}</b> @${esc(c.author.username)} · ${fmtTime(c.createdAt)}</div>
+        <div class="tx">${esc(c.content)}</div></div></div>`).join('')
+      : '<div class="empty" style="padding:26px">还没有评论，来抢沙发</div>';
+    const n = $('#ccNum'); if (n) n.textContent = '(' + fmtNum(d.items.length) + ')';
+  } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function reportDialog(type, id){
+  if (!needLogin()) return;
+  const reasons = ['垃圾广告 / 引流', '违规或敏感内容', '人身攻击 / 谩骂', '侵犯版权或隐私', '其他问题'];
+  const v = await openModal(`<h3>举报内容</h3><p class="desc">我们会尽快处理，同一内容只能举报一次。</p>
+    <div class="radio-list">${reasons.map((r,i) => `<label><input type="radio" name="rs" value="${esc(r)}" ${i===0?'checked':''}> ${esc(r)}</label>`).join('')}</div>
+    <div class="field" style="margin-top:12px"><label>补充说明（可选）</label><textarea class="input" id="rDetail" style="min-height:70px" placeholder="可以写清楚具体问题…"></textarea></div>
+    <div class="modal-actions"><button class="btn" id="rCancel">取消</button><button class="btn primary" id="rOk">提交举报</button></div>`);
+  if (v === 'submit') {
+    try {
+      const reason = ($('#modalBox').querySelector('input[name=rs]:checked') || {}).value || reasons[0];
+      const detail = $('#rDetail').value.trim();
+      await api('/api/reports', { method:'POST', body:{ targetType:type, targetId:id, reason, detail } });
+      toast('举报已提交，感谢反馈', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+  }
+}
+document.addEventListener('click', e => {
+  if (e.target.id === 'rCancel') closeModal(null);
+  if (e.target.id === 'rOk') closeModal('submit');
+});
+
+/* ---------------- 视图：发帖 ---------------- */
+function viewNew(){
+  if (!needLogin()) return;
+  state.postImages = []; state.postFormat = 'plain';
+  $('#app').innerHTML = `
+    <div class="page-head"><h1>发布帖子</h1><span class="spacer"></span><button class="btn sm ghost" onclick="location.hash='#/community'">取消</button></div>
+    <div class="card" style="padding:18px">
+      <div class="field"><label>标题</label><input class="input" id="pTitle" maxlength="100" placeholder="给帖子起个标题"></div>
+      <div class="field"><label>内容格式</label>
+        <div class="seg"><button id="fmtPlain" class="on">标准文本</button><button id="fmtMd">Markdown</button></div>
+        <div class="hint" style="margin-top:6px" id="fmtHint">标准文本会原样保留换行与空格。</div></div>
+      <div class="field"><label>正文</label><textarea class="input" id="pBody" placeholder="写点什么吧…"></textarea></div>
+      <div class="field"><label>配图（可选，最多 9 张）</label>
+        <button class="btn sm" id="addImgs">＋ 选择图片</button>
+        <div class="hint" style="margin-top:6px">单张不超过 ${(state.boot&&state.boot.maxUploadMB)||10}MB，图片存放在 B2 存储桶。</div>
+        <div class="up-grid" id="upGrid"></div></div>
+      <div class="field hide" id="previewBox"><label>Markdown 预览</label><div class="card article" id="mdPreview" style="padding:14px"></div></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" id="previewBtn">预览</button>
+        <button class="btn primary" id="publishBtn">发布帖子</button></div>
+    </div>`;
+  $('#fmtPlain').onclick = () => setFmt('plain');
+  $('#fmtMd').onclick = () => setFmt('markdown');
+  $('#addImgs').onclick = () => pickImages('post');
+  $('#previewBtn').onclick = () => {
+    const box = $('#previewBox');
+    box.classList.toggle('hide');
+    if (!box.classList.contains('hide')) $('#mdPreview').innerHTML = state.postFormat === 'markdown'
+      ? mdToHtml($('#pBody').value) : `<div class="plain" style="white-space:pre-wrap">${esc($('#pBody').value)}</div>`;
+  };
+  $('#publishBtn').onclick = async () => {
+    const title = $('#pTitle').value.trim(), body = $('#pBody').value.trim();
+    if (title.length < 2) { toast('标题至少 2 个字', 'err'); return; }
+    if (body.length < 2) { toast('内容不能为空', 'err'); return; }
+    $('#publishBtn').disabled = true;
+    try {
+      const d = await api('/api/posts', { method:'POST', body:{ title, body, format:state.postFormat, images:state.postImages } });
+      toast('发布成功', 'ok'); go('#/post/' + d.id);
+    } catch (e) { toast(e.message, 'err'); $('#publishBtn').disabled = false; }
+  };
+  renderUpGrid();
+}
+function setFmt(f){
+  state.postFormat = f;
+  $('#fmtPlain').classList.toggle('on', f === 'plain');
+  $('#fmtMd').classList.toggle('on', f === 'markdown');
+  $('#fmtHint').textContent = f === 'markdown' ? '支持标题、粗斜体、列表、引用、代码块、链接与图片。' : '标准文本会原样保留换行与空格。';
+}
+
+/* ---------------- 视图：模组中心 ---------------- */
+async function viewMods(){
+  state.page = 1;
+  $('#app').innerHTML = `
+    <div class="page-head"><h1>模组中心</h1><span class="sub">分享你的 Minecraft 模组</span><span class="spacer"></span>
+      <button class="btn primary sm" id="toModNew">${ICON.plus} 发布模组</button></div>
+    <div class="card" style="padding:10px 12px;display:flex;gap:8px;margin-bottom:14px">
+      <input class="input" id="modQ" placeholder="搜索模组名称或简介…">
+      <button class="btn sm" id="modSearchBtn">搜索</button></div>
+    <div id="modList"><div class="loading">加载中…</div></div>
+    <div class="pager" id="modPager"></div>`;
+  $('#toModNew').onclick = () => { if (needLogin()) go('#/mod/new'); };
+  $('#modSearchBtn').onclick = () => { state.q = $('#modQ').value.trim(); state.page = 1; loadMods(); };
+  $('#modQ').addEventListener('keydown', e => { if (e.key === 'Enter') { state.q = $('#modQ').value.trim(); state.page = 1; loadMods(); } });
+  await loadMods();
+}
+async function loadMods(){
+  const box = $('#modList'); if (!box) return;
+  box.innerHTML = '<div class="loading">加载中…</div>';
+  try {
+    const d = await api(`/api/mods?page=${state.page}&q=${encodeURIComponent(state.q)}`);
+    box.innerHTML = d.items.length ? `<div class="mod-grid">${d.items.map(m => `
+      <div class="mod-card" data-id="${esc(m.id)}">
+        <div class="mod-cover">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : '🧩'}</div>
+        <div class="mod-body"><div class="n">${esc(m.name)}</div><div class="s">${esc(m.summary)}</div>
+          <div class="tags">${m.loaders.slice(0,3).map(x => `<span class="tag">${esc(x)}</span>`).join('')}${m.versions.slice(0,2).map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div>
+          <div class="hint" style="margin-top:9px">${esc(m.author.displayName)} · ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
+        </div></div>`).join('')}</div>`
+      : '<div class="card empty"><span class="big">🧩</span>还没有模组，来发布第一个吧</div>';
+    box.querySelectorAll('[data-id]').forEach(el => el.onclick = () => go('#/mod/' + el.dataset.id));
+    const pg = $('#modPager');
+    if (pg) {
+      pg.innerHTML = `<button class="btn sm" id="prevM" ${state.page<=1?'disabled':''}>上一页</button><span>第 ${d.page} 页 · 共 ${d.total} 个</span><button class="btn sm" id="nextM" ${d.hasMore?'':'disabled'}>下一页</button>`;
+      $('#prevM').onclick = () => { if (state.page>1) { state.page--; loadMods(); } };
+      $('#nextM').onclick = () => { if (d.hasMore) { state.page++; loadMods(); } };
+    }
+  } catch (e) { box.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
+}
+async function viewMod(id){
+  $('#app').innerHTML = '<div class="loading">加载中…</div>';
+  try {
+    const d = await api('/api/mods/' + encodeURIComponent(id)); const m = d.mod;
+    $('#app').innerHTML = `<div class="card detail">
+      <h1>${esc(m.name)}</h1>
+      <div class="by">${avatarHtml(m.author)} <b>${esc(m.author.displayName)}</b> · ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
+      ${m.image ? `<img src="${esc(m.image)}" style="max-height:420px;border-radius:12px;display:block;margin-bottom:16px" alt="">` : ''}
+      <div class="article plain">${esc(m.summary)}</div>
+      <div class="field" style="margin-top:20px"><label>支持的版本</label><div class="tags">${m.versions.map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div></div>
+      <div class="field"><label>支持的加载器</label><div class="tags">${m.loaders.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div></div>
+      <div class="action-bar" style="margin:18px -18px -20px">
+        <button class="btn sm" id="mReport">⚑ 举报</button><span class="spacer"></span>
+        <button class="btn sm ghost" onclick="location.hash='#/mods'">← 返回模组中心</button></div></div>`;
+    $('#mReport').onclick = () => reportDialog('mod', m.id);
+    const im = $('#app').querySelector('img[style*="max-height"]'); if (im) im.onclick = () => lightbox(im.src);
+  } catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
+}
+const LOADER_OPTIONS = ['Forge','Fabric','NeoForge','Quilt','Paper','Spigot','Bukkit','Sponge','Fabric API','其他'];
+function viewModNew(){
+  if (!needLogin()) return;
+  state.modImage = ''; state.modLoaders = [];
+  $('#app').innerHTML = `
+    <div class="page-head"><h1>发布模组</h1><span class="spacer"></span><button class="btn sm ghost" onclick="location.hash='#/mods'">取消</button></div>
+    <div class="card" style="padding:18px">
+      <div class="field"><label>模组名称 *</label><input class="input" id="mName" maxlength="80" placeholder="例如：不知名优化模组"></div>
+      <div class="field"><label>模组简介 *</label><textarea class="input" id="mSummary" style="min-height:110px" placeholder="介绍模组的功能、特色与使用方法…"></textarea></div>
+      <div class="field"><label>模组使用图（可选）</label>
+        <button class="btn sm" id="mAddImg">＋ 上传图片</button><div class="up-grid" id="modImageBox"></div></div>
+      <div class="field"><label>支持的版本 *（逗号分隔，最多 20 个）</label>
+        <input class="input" id="mVersions" placeholder="例如：1.21.1, 1.20.4, 1.19.2">
+        <div class="hint" style="margin-top:5px">常用：1.21.1 / 1.20.4 / 1.20.1 / 1.19.2 / 1.18.2 / 1.16.5</div></div>
+      <div class="field"><label>支持的加载器 *（可多选）</label>
+        <div class="chips" id="loaderChips">${LOADER_OPTIONS.map(x => `<span class="chip" data-v="${esc(x)}">${esc(x)}</span>`).join('')}</div></div>
+      <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="mPublish">发布模组</button></div>
+    </div>`;
+  $('#mAddImg').onclick = () => pickImages('mod');
+  $('#loaderChips').querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    const v = c.dataset.v;
+    const i = state.modLoaders.indexOf(v);
+    if (i >= 0) { state.modLoaders.splice(i,1); c.classList.remove('on'); }
+    else { state.modLoaders.push(v); c.classList.add('on'); }
+  });
+  $('#mPublish').onclick = async () => {
+    const name = $('#mName').value.trim(), summary = $('#mSummary').value.trim();
+    const versions = $('#mVersions').value.split(/[,，、\n]/).map(s => s.trim()).filter(Boolean).slice(0,20);
+    if (name.length < 2) { toast('请填写模组名称', 'err'); return; }
+    if (summary.length < 5) { toast('简介至少 5 个字', 'err'); return; }
+    if (!versions.length) { toast('请至少填写一个支持的版本', 'err'); return; }
+    if (!state.modLoaders.length) { toast('请至少选择一个加载器', 'err'); return; }
+    $('#mPublish').disabled = true;
+    try {
+      const d = await api('/api/mods', { method:'POST', body:{
+        name, summary, image:state.modImage, versions, loaders:state.modLoaders } });
+      toast('发布成功', 'ok'); go('#/mod/' + d.id);
+    } catch (e) { toast(e.message, 'err'); $('#mPublish').disabled = false; }
+  };
+  renderModImage();
+}
+
+/* ---------------- 视图：个人中心 ---------------- */
+async function viewMe(){
+  if (!needLogin()) return;
+  $('#app').innerHTML = '<div class="loading">加载中…</div>';
+  let d;
+  try { d = await api('/api/me'); }
+  catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+  const u = d.me, s = d.stats;
+  $('#app').innerHTML = `
+    <div class="page-head"><h1>个人中心</h1></div>
+    <div class="card">
+      <div class="profile"><span id="avatarPreview">${avatarHtml(u)}</span>
+        <div class="info"><h2>${esc(u.displayName || u.username)}</h2>
+          <div class="m">@${esc(u.username)} · ${esc(u.email)} ${u.role === 'admin' ? '· <span class="badge">管理员</span>' : ''}</div>
+          <div class="m">注册于 ${fmtTime(u.createdAt)}</div></div></div>
+      <div class="stats"><div class="stat"><b>${fmtNum(s.posts)}</b><span>帖子</span></div>
+        <div class="stat"><b>${fmtNum(s.comments)}</b><span>评论</span></div>
+        <div class="stat"><b>${fmtNum(s.likes)}</b><span>点赞</span></div>
+        <div class="stat"><b>${fmtNum(s.mods)}</b><span>模组</span></div></div>
+      <div class="section"><h3>修改资料</h3>
+        <div class="row2">
+          <div class="field"><label>用户名</label><input class="input" id="uName" value="${esc(u.username)}" maxlength="20"></div>
+          <div class="field"><label>显示名称</label><input class="input" id="uDisplay" value="${esc(u.displayName)}" maxlength="30"></div>
+        </div>
+        <div class="field"><label>个人简介</label><textarea class="input" id="uBio" style="min-height:80px" maxlength="200" placeholder="介绍一下自己…">${esc(u.bio)}</textarea></div>
+        <div class="field"><label>头像</label>
+          <div style="display:flex;gap:8px;align-items:center"><input class="input" id="avatarUrl" value="${esc(u.avatar)}" placeholder="留空则使用首字母头像">
+            <button class="btn sm" id="pickAvatar">上传</button></div>
+          <div class="hint" style="margin-top:5px">也可直接粘贴代理图片链接。</div></div>
+        <button class="btn primary" id="saveProfile">保存资料</button></div>
+      ${u.hasPassword ? `<div class="section"><h3>修改密码</h3>
+        <div class="row2"><div class="field"><label>原密码</label><input class="input" type="password" id="oldPw"></div>
+          <div class="field"><label>新密码（8 位以上）</label><input class="input" type="password" id="newPw"></div></div>
+        <button class="btn" id="savePw">修改密码</button>
+        <div class="hint" style="margin-top:8px">修改后其它设备的登录状态会失效。</div></div>`
+        : '<div class="section"><div class="hint">该账号通过 Prism 授权登录，不支持修改本站密码。</div></div>'}
+    </div>
+    ${u.role === 'admin' ? '<div class="card" style="padding:16px"><h3 style="margin:0 0 10px">管理</h3><button class="btn sm" id="adminReports">查看举报</button><div id="reportList"></div></div>' : ''}`;
+  $('#pickAvatar').onclick = () => pickImages('avatar');
+  $('#saveProfile').onclick = async () => {
+    try {
+      const r = await api('/api/me/update', { method:'POST', body:{
+        username: $('#uName').value.trim(), displayName: $('#uDisplay').value.trim(),
+        bio: $('#uBio').value, avatar: $('#avatarUrl').value.trim() } });
+      state.me = r.me; updateTop(); toast('资料已保存', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+  };
+  const sp = $('#savePw');
+  if (sp) sp.onclick = async () => {
+    try {
+      const r = await api('/api/me/password', { method:'POST', body:{ oldPassword:$('#oldPw').value, newPassword:$('#newPw').value } });
+      state.me = r.me; $('#oldPw').value = ''; $('#newPw').value = ''; toast('密码已修改', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+  };
+  const ar = $('#adminReports');
+  if (ar) ar.onclick = async () => {
+    try {
+      const r = await api('/api/admin/reports');
+      $('#reportList').innerHTML = r.items.length ? r.items.map(x => `
+        <div class="comment"><div class="bd"><div class="hd"><b>${esc(x.reason)}</b> ${esc(x.target_type)} · ${esc(x.reporter)} · ${fmtTime(x.created_at)}</div>
+        <div class="tx">${esc(x.detail || '（无补充说明）')}</div>
+        <div style="margin-top:8px;display:flex;gap:6px"><button class="btn sm" data-hide="${esc(x.id)}">隐藏内容并结案</button><button class="btn sm ghost" data-dismiss="${esc(x.id)}">忽略</button></div></div></div>`).join('')
+        : '<div class="hint" style="padding:12px">暂无待处理举报</div>';
+      $('#reportList').querySelectorAll('[data-hide]').forEach(b => b.onclick = () => handleReport(b.dataset.hide, true));
+      $('#reportList').querySelectorAll('[data-dismiss]').forEach(b => b.onclick = () => handleReport(b.dataset.dismiss, false));
+    } catch (e) { toast(e.message, 'err'); }
+  };
+}
+async function handleReport(id, hide){
+  try {
+    await api('/api/admin/reports/' + id, { method:'POST', body:{ status: hide ? 'resolved' : 'dismissed', hideTarget: hide } });
+    toast('已处理', 'ok'); $('#adminReports').click();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ---------------- 视图：登录 / 注册 ---------------- */
+let authTab = 'login';
+function viewLogin(){
+  const b = state.boot || {};
+  const tabBtn = (k, t) => `<button class="${authTab===k?'on':''}" data-tab="${k}">${t}</button>`;
+  $('#app').innerHTML = `<div class="auth-wrap"><div class="card" style="padding:20px">
+    <div class="tabs">
+      ${tabBtn('login','密码登录')}${tabBtn('code','验证码登录')}${tabBtn('register','邮箱注册')}${tabBtn('reset','忘记密码')}
+    </div>
+    <div id="authBody"></div>
+    ${b.prismEnabled ? `<div class="divider">或</div><button class="btn prism-btn" id="prismBtn" style="width:100%">使用 Prism 授权登录</button>` : ''}
+    ${!b.mailEnabled ? '<div class="hint" style="margin-top:12px;color:var(--warn)">⚠ 邮件服务未配置，注册与验证码登录暂不可用，可先用 Prism 登录。</div>' : ''}
+  </div></div>`;
+  $('#app').querySelectorAll('[data-tab]').forEach(x => x.onclick = () => { authTab = x.dataset.tab; viewLogin(); });
+  const pb = $('#prismBtn'); if (pb) pb.onclick = () => location.href = '/api/auth/prism/login';
+  renderAuthBody();
+}
+function renderAuthBody(){
+  const box = $('#authBody');
+  const codeRow = (scene) => `<div class="field"><label>邮箱验证码</label><div class="code-row">
+      <input class="input" id="aCode" inputmode="numeric" maxlength="6" placeholder="6 位验证码">
+      <button class="btn" id="sendCode" data-scene="${scene}">获取验证码</button></div>
+      <div class="hint" style="margin-top:5px">60 秒内只能发送一次，10 分钟内有效。</div></div>`;
+  const emailField = '<div class="field"><label>邮箱</label><input class="input" id="aEmail" type="email" autocomplete="email" placeholder="you@example.com"></div>';
+  const pwField = (id, label, ph) => `<div class="field"><label>${label}</label><input class="input" id="${id}" type="password" autocomplete="new-password" placeholder="${ph}"></div>`;
+  let html = '';
+  if (authTab === 'login') {
+    html = emailField + pwField('aPw','密码','输入密码') + `<button class="btn primary" id="aSubmit" style="width:100%">登录</button>`;
+  } else if (authTab === 'code') {
+    html = emailField + codeRow('login') + `<button class="btn primary" id="aSubmit" style="width:100%">验证码登录</button>`;
+  } else if (authTab === 'register') {
+    html = emailField + `<div class="field"><label>用户名</label><input class="input" id="aUser" maxlength="20" placeholder="2~20 位，中英文数字"></div>`
+      + pwField('aPw','密码','至少 8 位') + codeRow('register')
+      + `<button class="btn primary" id="aSubmit" style="width:100%">注册并登录</button>`;
+  } else {
+    html = emailField + pwField('aPw','新密码','至少 8 位') + codeRow('reset')
+      + `<button class="btn primary" id="aSubmit" style="width:100%">重置密码</button>`;
+  }
+  box.innerHTML = html;
+  const sc = $('#sendCode');
+  if (sc) sc.onclick = async () => {
+    const email = $('#aEmail').value.trim();
+    if (!email) { toast('请先填写邮箱', 'err'); return; }
+    sc.disabled = true;
+    try {
+      const d = await api('/api/auth/code', { method:'POST', body:{ email, scene: sc.dataset.scene } });
+      toast(d.devCode ? ('调试验证码：' + d.devCode) : '验证码已发送，请查收邮箱', 'ok');
+      let left = 60;
+      const t = setInterval(() => { left--; sc.textContent = left > 0 ? `${left}s 后重发` : '获取验证码'; if (left <= 0) { clearInterval(t); sc.disabled = false; } }, 1000);
+      sc.textContent = '60s 后重发';
+    } catch (e) { toast(e.message, 'err'); sc.disabled = false; }
+  };
+  $('#aSubmit').onclick = async () => {
+    const email = $('#aEmail').value.trim();
+    const body = { email };
+    let path = '';
+    if (authTab === 'login') { path = '/api/auth/login'; body.password = $('#aPw').value; }
+    else if (authTab === 'code') { path = '/api/auth/login_code'; body.code = $('#aCode').value.trim(); }
+    else if (authTab === 'register') {
+      path = '/api/auth/register';
+      body.username = $('#aUser').value.trim(); body.password = $('#aPw').value; body.code = $('#aCode').value.trim();
+    } else {
+      path = '/api/auth/reset'; body.password = $('#aPw').value; body.code = $('#aCode').value.trim();
+    }
+    $('#aSubmit').disabled = true;
+    try {
+      const d = await api(path, { method:'POST', body });
+      if (authTab === 'reset') { toast('密码已重置，请重新登录', 'ok'); authTab = 'login'; viewLogin(); return; }
+      state.me = d.me; updateTop(); toast('欢迎来到不知名社区', 'ok'); go('#/community');
+    } catch (e) { toast(e.message, 'err'); $('#aSubmit').disabled = false; }
+  };
+}
+
+/* ---------------- 路由 ---------------- */
+function parseRoute(){
+  const h = location.hash.replace(/^#\/?/, '') || 'community';
+  const [a, b] = h.split('/');
+  if (a === 'post' && b) return { name:'post', id:b };
+  if (a === 'new') return { name:'new' };
+  if (a === 'mods') return { name:'mods' };
+  if (a === 'mod' && b === 'new') return { name:'modnew' };
+  if (a === 'mod' && b) return { name:'mod', id:b };
+  if (a === 'me') return { name:'me' };
+  if (a === 'login') return { name:'login' };
+  return { name:'community' };
+}
+async function renderRoute(){
+  const r = parseRoute();
+  const prev = state.route ? state.route.name : null;
+  state.route = r;
+  closeDrawer();
+  if (prev !== r.name && (r.name === 'community' || r.name === 'mods')) state.q = '';
+  try {
+    if (r.name === 'community') await viewCommunity();
+    else if (r.name === 'post') await viewPost(r.id);
+    else if (r.name === 'new') viewNew();
+    else if (r.name === 'mods') await viewMods();
+    else if (r.name === 'mod') await viewMod(r.id);
+    else if (r.name === 'modnew') viewModNew();
+    else if (r.name === 'me') await viewMe();
+    else viewLogin();
+  } catch (e) {
+    $('#app').innerHTML = `<div class="card empty">页面加载失败：${esc(e.message)}</div>`;
+  }
+  window.scrollTo(0, 0);
+}
+
+/* ---------------- 绑定 / 启动 ---------------- */
+$('#hamb').onclick = openDrawer;
+$('#drawerMask').onclick = closeDrawer;
+$('#brand').onclick = () => go('#/community');
+$('#loginBtn').onclick = () => go('#/login');
+$('#meBtn').onclick = () => go('#/me');
+$('#themeBtn').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', cur);
+  try { localStorage.setItem('bzm_theme', cur); } catch (_) {}
+};
+window.addEventListener('hashchange', renderRoute);
+window.addEventListener('error', e => { if (e.message) console.error('[ui]', e.message); });
+
+(async function boot(){
+  try {
+    const saved = localStorage.getItem('bzm_theme');
+    document.documentElement.setAttribute('data-theme',
+      saved || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  } catch (_) {}
+  try {
+    state.boot = await api('/api/bootstrap');
+    state.me = state.boot.me;
+  } catch (e) {
+    $('#app').innerHTML = `<div class="card empty">初始化失败：${esc(e.message)}<br><br><span class="hint">请检查 D1 / KV 绑定是否已配置（访问 /api/health 查看状态）。</span></div>`;
+    return;
+  }
+  updateTop();
+  const err = new URLSearchParams(location.search).get('err');
+  if (err) toast('授权失败：' + err, 'err');
+  renderRoute();
+})();
+
+})();
+</script>
+</body>
+</html>
