@@ -5,6 +5,19 @@
 // ============================================================
 import HTML from './index.html';
 
+/* ---------------- 构建标记 ----------------
+   每次交付会改这一行。访问 /api/health 或 /api/diag 看 build 字段，
+   就能立刻确认浏览器打到的是不是这一版，排除「改了没部署生效」。   */
+const BUILD_TAG = 'bzm-20261122-v6-diag';
+let lastError = null;   // 同一 isolate 内记录最近一次 500，供 /api/diag 读取
+
+function redact(s) {
+  return String(s || '').slice(0, 300)
+    .replace(/xkeysib-[A-Za-z0-9_-]+/gi, '[redacted]')
+    .replace(/\b[A-Fa-f0-9]{32,}\b/g, '[redacted]')
+    .replace(/[\r\n]+/g, ' ');
+}
+
 /* ---------------- 配置 ---------------- */
 const cfg = (env) => ({
   siteName:       env.SITE_NAME || '不知名社区',
@@ -139,8 +152,9 @@ async function ensureModColumns(env, force = false) {
     }
   }
 
-  const ready = MOD_COLUMNS.every(([n]) => cols.includes(n));
-  const state = { cols, added, note, ready };
+  const safeCols = Array.isArray(cols) ? cols : [];
+  const ready = MOD_COLUMNS.every(([n]) => safeCols.includes(n));
+  const state = { cols: safeCols, added, note, ready };
   // 只有成功才缓存：探测失败/DDL 失败时下次请求会重试，不把故障固化
   if (ready) {
     modSchemaState = state;
@@ -222,9 +236,15 @@ async function verifyPassword(pw, stored) {
 /* ---------------- KV：限流 / 验证码 ---------------- */
 async function rateLimit(env, key, seconds) {
   if (seconds <= 0) return;
-  const hit = await env.KV.get(`rl:${key}`);
-  if (hit) throw new ApiError('操作太频繁，请稍后再试', 429, 'rate_limited');
-  await env.KV.put(`rl:${key}`, '1', { expirationTtl: seconds });
+  try {
+    const hit = await env.KV.get(`rl:${key}`);
+    if (hit) throw new ApiError('操作太频繁，请稍后再试', 429, 'rate_limited');
+    await env.KV.put(`rl:${key}`, '1', { expirationTtl: seconds });
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    // KV 写入配额耗尽 / 绑定异常时降级为「不限流」，核心功能不该跟着挂
+    console.error('[bzm] rateLimit KV 不可用，本次跳过限流', e);
+  }
 }
 async function sendCode(env, c, email, scene) {
   if (!c.brevoKey || !c.brevoFrom) {
@@ -550,7 +570,8 @@ async function handleApi(request, env, c, path, me) {
   /* ---- 基础 ---- */
   if (path === '/api/health') {
     return ok({
-      service: c.siteName, time: now(),
+      service: c.siteName, time: now(), build: BUILD_TAG,
+      lastError: lastError ? redact(lastError) : null,
       checks: {
         d1: !!env.DB, kv: !!env.KV,
         prism: !!(c.prismId && c.prismSecret && c.prismRedirect),
@@ -569,6 +590,57 @@ async function handleApi(request, env, c, path, me) {
       },
     });
   }
+  // 一键自检：真实跑一遍依赖，把失败原文回出来（已脱敏，不含任何密钥）
+  if (path === '/api/diag') {
+    const out = { build: BUILD_TAG, time: now(), steps: [], bindings: {}, secrets: {}, lastError: lastError ? redact(lastError) : null };
+    const step = async (name, fn) => {
+      try { const v = await fn(); out.steps.push({ name, ok: true, value: v === undefined ? null : v }); }
+      catch (e) { out.steps.push({ name, ok: false, error: redact(String(e?.message || e)) }); }
+    };
+    out.bindings = { d1: !!env.DB, kv: !!env.KV };
+    out.secrets = {
+      prismId: !!c.prismId, prismSecret: !!c.prismSecret, prismRedirect: !!c.prismRedirect,
+      brevoKey: !!c.brevoKey, brevoFrom: !!c.brevoFrom,
+      b2KeyId: !!c.b2KeyId, b2AppKey: !!c.b2AppKey, b2Bucket: !!c.b2Bucket,
+    };
+    await step('d1_select_1', async () => (await env.DB.prepare('SELECT 1 AS x').first())?.x);
+    await step('kv_read', async () => await env.KV.get('diag:probe'));
+    await step('kv_write', async () => { await env.KV.put('diag:probe', 'ok', { expirationTtl: 60 }); return 'ok'; });
+    await step('kv_delete', async () => { await env.KV.delete('diag:probe'); return 'ok'; });
+    for (const t of ['users', 'posts', 'mods', 'comments', 'post_likes', 'reports']) {
+      await step('cols_' + t, async () => {
+        try {
+          const r = await env.DB.prepare(`SELECT name FROM pragma_table_info('${t}')`).all();
+          return (r.results || []).map(x => x.name);
+        } catch {
+          const r = await env.DB.prepare(`PRAGMA table_info(${t})`).all();
+          return (r.results || []).map(x => x.name || x[1]).filter(Boolean);
+        }
+      });
+    }
+    await step('count_posts', async () => (await env.DB.prepare('SELECT COUNT(*) AS n FROM posts').first())?.n);
+    await step('count_users', async () => (await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first())?.n);
+    // 只 EXPLAIN，不真的插数据：能验证 INSERT 的列是否齐全
+    await step('explain_insert_post', async () => {
+      await env.DB.prepare(`EXPLAIN INSERT INTO posts
+        (id,author_id,title,body,format,images,views,likes,comment_count,status,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,0,0,0,'normal',?,?)`)
+        .bind('x','x','x','x','plain','[]',0,0).all();
+      return 'ok';
+    });
+    await step('explain_insert_mod', async () => {
+      await env.DB.prepare(`EXPLAIN INSERT INTO mods
+        (id,author_id,name,summary,image,versions,loaders,file_url,file_name,file_size,views,status,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
+        .bind('x','x','x','x','','[]','[]','','',0,0,0).all();
+      return 'ok';
+    });
+    const bad = out.steps.filter(s => !s.ok);
+    out.verdict = bad.length === 0
+      ? '全部通过：若仍报 500，把 /api/diag 结果和 Network 里红色请求一起发我'
+      : `有 ${bad.length} 项失败，先看失败项的 error 原文`;
+    return ok(out);
+  }
   // 强制重新探测一次，给排障用（GET、无鉴权、只回列名不回任何数据）
   if (path === '/api/diag/schema') {
     return ok({
@@ -583,7 +655,7 @@ async function handleApi(request, env, c, path, me) {
   }
   if (path === '/api/bootstrap') {
     return ok({
-      siteName: c.siteName,
+      siteName: c.siteName, build: BUILD_TAG,
       me: me ? publicUser(me) : null,
       prismEnabled: !!(c.prismId && c.prismSecret && c.prismRedirect),
       mailEnabled: !!(c.brevoKey && c.brevoFrom),
@@ -986,16 +1058,22 @@ export default {
       if (e instanceof ApiError) return fail(e.message, e.status, e.code);
       console.error('[bzm]', e);
       const raw = String(e?.message || e);
+      lastError = `${path} | ${raw}`;
+      const detail = redact(raw);
+      const body = (msg, code) => json({ ok: false, error: msg, code, detail, path, build: BUILD_TAG }, 500);
       const col = (raw.match(/no such column:\s*([A-Za-z_][A-Za-z0-9_]*)/i) || [])[1];
-      if (col) return fail(`数据库缺少字段 ${col}：请打开 /api/health 自动修复，或执行 迁移_模组文件.sql`, 500, 'schema_missing');
+      if (col) return body(`数据库缺少字段 ${col}：请打开 /api/diag 查看并补列`, 'schema_missing');
       if (/no such table/i.test(raw)) {
         const t = (raw.match(/no such table:\s*([A-Za-z_][A-Za-z0-9_]*)/i) || [])[1] || '数据表';
-        return fail(`数据库缺少表 ${t}：请先执行 schema.sql 建表`, 500, 'schema_missing');
+        return body(`数据库缺少表 ${t}：请先执行 schema.sql 建表`, 'schema_missing');
       }
-      if (/D1_ERROR|no such column|SQLITE_ERROR/i.test(raw)) {
-        return fail('数据库查询失败，请打开 /api/diag/schema 查看表结构', 500, 'db_error');
+      if (/D1_ERROR|SQLITE_ERROR|no such column/i.test(raw)) {
+        return body('数据库查询失败，请打开 /api/diag 看失败项', 'db_error');
       }
-      return fail('服务器内部错误，请稍后再试', 500, 'internal');
+      if (/KV|quota|write|limit|1000/i.test(raw)) {
+        return body('KV 读写失败（免费版每天 1000 次写入上限或绑定异常），请打开 /api/diag', 'kv_error');
+      }
+      return body('服务器内部错误，请稍后再试（详情见下方）', 'internal');
     }
   },
 };

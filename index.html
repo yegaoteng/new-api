@@ -340,10 +340,15 @@ async function api(path, opts){
   let d;
   try { d = await res.json(); } catch { throw new Error('服务器返回异常（HTTP ' + res.status + '）'); }
   if (!d.ok) {
-    const e = new Error(d.error || '请求失败');
+    let msg = d.error || '请求失败';
+    if (d.detail) msg += '｜' + String(d.detail).slice(0, 110);
+    if (d.build) msg += '｜版本 ' + d.build;
+    const e = new Error(msg);
     e.code = d.code; e.status = res.status;
+    e.detail = d.detail; e.build = d.build;
     throw e;
   }
+  state.build = d.build || state.build;
   return d;
 }
 function go(hash){ if (location.hash === hash) renderRoute(); else location.hash = hash; }
@@ -391,7 +396,8 @@ function updateTop(){
   $('#meBtn').style.display = has ? '' : 'none';
   if (has) $('#meBtn').innerHTML = avatarHtml(state.me).replace(/^<span class="avatar">|<\/span>$/g, '');
   $('#drSub').textContent = has ? ('你好，' + (state.me.displayName || state.me.username)) : '登录后可发帖、评论和点赞';
-  $('#drFoot').textContent = '© ' + ((state.boot && state.boot.siteName) || '不知名社区');
+  $('#drFoot').textContent = '© ' + ((state.boot && state.boot.siteName) || '不知名社区')
+    + (state.build ? ' · ' + state.build : '');
   $('#drTitle').textContent = (state.boot && state.boot.siteName) || '不知名社区';
 }
 
@@ -1074,6 +1080,7 @@ window.addEventListener('error', e => { if (e.message) console.error('[ui]', e.m
   try {
     state.boot = await api('/api/bootstrap');
     state.me = state.boot.me;
+    state.build = state.boot.build || '';
   } catch (e) {
     $('#app').innerHTML = `<div class="card empty">初始化失败：${esc(e.message)}<br><br><span class="hint">请检查 D1 / KV 绑定是否已配置（访问 /api/health 查看状态）。</span></div>`;
     return;
