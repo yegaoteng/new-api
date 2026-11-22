@@ -81,6 +81,74 @@ function excerpt(body, n = 140) {
   return cleanText(body, 4000).replace(/[#*`>\[\]()!]/g, '').replace(/\s+/g, ' ').slice(0, n);
 }
 
+/* ---------------- D1 表结构自愈 ----------------
+   早期版本的 mods 表没有 file_url / file_name / file_size 三列，
+   新版 INSERT 会报 "no such column" → 全局兜底成「服务器内部错误」。
+   这里在每次 API 请求前探测一次并自动 ALTER 补齐：
+   · 用户在手机上不用再跑迁移脚本
+   · PRAGMA 不支持或 DDL 失败时静默降级，绝不阻断正常请求
+   · isolate 内缓存 + KV 标记，避免每个请求都查一次表结构           */
+const MOD_COLUMNS = [
+  ['file_url',  "TEXT NOT NULL DEFAULT ''"],
+  ['file_name', "TEXT NOT NULL DEFAULT ''"],
+  ['file_size', 'INTEGER NOT NULL DEFAULT 0'],
+];
+const MOD_SCHEMA_KEY = 'schema:mods:v2';
+let modSchemaState = null;   // 单个 isolate 内的缓存
+
+async function probeModColumns(env) {
+  try {
+    const r = await env.DB.prepare("SELECT name FROM pragma_table_info('mods')").all();
+    return (r.results || []).map(x => x.name).filter(Boolean);
+  } catch {
+    // 部分 D1 版本不支持表值函数，退回到标准 PRAGMA
+    try {
+      const r = await env.DB.prepare('PRAGMA table_info(mods)').all();
+      return (r.results || []).map(x => x.name || x[1]).filter(Boolean);
+    } catch { return null; }
+  }
+}
+async function ensureModColumns(env, force = false) {
+  if (modSchemaState && !force) return modSchemaState;
+  let cols = [], added = [], note = '';
+
+  if (!force) {
+    try {
+      if (await env.KV.get(MOD_SCHEMA_KEY) === 'ok') {
+        modSchemaState = { cols: MOD_COLUMNS.map(x => x[0]), added: [], note: 'kv-cached', ready: true };
+        return modSchemaState;
+      }
+    } catch { /* KV 不可用就每次探测，不影响正确性 */ }
+  }
+
+  cols = await probeModColumns(env);
+  if (cols === null) {
+    note = '表结构探测不可用（PRAGMA 被禁用）';
+  } else {
+    for (const [name, def] of MOD_COLUMNS) {
+      if (cols.includes(name)) continue;
+      try {
+        await env.DB.prepare(`ALTER TABLE mods ADD COLUMN ${name} ${def}`).run();
+        cols.push(name);
+        added.push(name);
+      } catch (e) {
+        // 并发下别的请求刚加过：视为已存在
+        if (/duplicate column/i.test(String(e))) { if (!cols.includes(name)) cols.push(name); }
+        else note = `补 ${name} 失败: ${String(e).slice(0, 120)}`;
+      }
+    }
+  }
+
+  const ready = MOD_COLUMNS.every(([n]) => cols.includes(n));
+  const state = { cols, added, note, ready };
+  // 只有成功才缓存：探测失败/DDL 失败时下次请求会重试，不把故障固化
+  if (ready) {
+    modSchemaState = state;
+    try { await env.KV.put(MOD_SCHEMA_KEY, 'ok'); } catch {}
+  }
+  return state;
+}
+
 /* ---------------- Cookie / Session ---------------- */
 function parseCookies(request) {
   const out = {};
@@ -475,6 +543,10 @@ async function handleApi(request, env, c, path, me) {
   const pageOf = (u) => clamp(parseInt(u.searchParams.get('page') || '1', 10) || 1, 1, 100000);
   const qOf = (u) => cleanText(u.searchParams.get('q') || '', 60);
 
+  // 旧库自动补 3 列；失败也继续走，由全局错误兜底给出可读提示
+  let schema = null;
+  try { schema = await ensureModColumns(env, path === '/api/diag/schema'); } catch { /* 不阻断 */ }
+
   /* ---- 基础 ---- */
   if (path === '/api/health') {
     return ok({
@@ -484,7 +556,10 @@ async function handleApi(request, env, c, path, me) {
         prism: !!(c.prismId && c.prismSecret && c.prismRedirect),
         brevo: !!(c.brevoKey && c.brevoFrom),
         b2: !!(c.b2KeyId && c.b2AppKey && c.b2Bucket),
+        modSchema: schema ? schema.ready : false,
       },
+      modColumns: schema ? schema.cols : [],
+      modSchemaNote: schema?.note || '',
       config: {
         pageSize: c.pageSize, maxUploadMB: c.maxUploadMB, maxModMB: c.maxModMB,
         proxyBase: c.publicBase, proxyAlias: c.proxyAlias,
@@ -492,6 +567,18 @@ async function handleApi(request, env, c, path, me) {
         mailName: c.brevoName,
         prismRedirect: c.prismRedirect || null,
       },
+    });
+  }
+  // 强制重新探测一次，给排障用（GET、无鉴权、只回列名不回任何数据）
+  if (path === '/api/diag/schema') {
+    return ok({
+      columns: schema?.cols || [],
+      added: schema?.added || [],
+      ready: !!schema?.ready,
+      note: schema?.note || '',
+      hint: schema?.ready
+        ? 'mods 三列齐全，模组下载功能可用'
+        : 'mods 缺列或探测失败，请在 D1 Studio 执行 迁移_模组文件.sql 的 3 条 ALTER',
     });
   }
   if (path === '/api/bootstrap') {
@@ -898,6 +985,16 @@ export default {
     } catch (e) {
       if (e instanceof ApiError) return fail(e.message, e.status, e.code);
       console.error('[bzm]', e);
+      const raw = String(e?.message || e);
+      const col = (raw.match(/no such column:\s*([A-Za-z_][A-Za-z0-9_]*)/i) || [])[1];
+      if (col) return fail(`数据库缺少字段 ${col}：请打开 /api/health 自动修复，或执行 迁移_模组文件.sql`, 500, 'schema_missing');
+      if (/no such table/i.test(raw)) {
+        const t = (raw.match(/no such table:\s*([A-Za-z_][A-Za-z0-9_]*)/i) || [])[1] || '数据表';
+        return fail(`数据库缺少表 ${t}：请先执行 schema.sql 建表`, 500, 'schema_missing');
+      }
+      if (/D1_ERROR|no such column|SQLITE_ERROR/i.test(raw)) {
+        return fail('数据库查询失败，请打开 /api/diag/schema 查看表结构', 500, 'db_error');
+      }
       return fail('服务器内部错误，请稍后再试', 500, 'internal');
     }
   },
