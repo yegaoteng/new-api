@@ -130,6 +130,8 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
 .article hr{border:0;border-top:1px solid var(--border);margin:18px 0}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
 .gallery img{width:100%;height:140px;object-fit:cover;border-radius:10px;border:1px solid var(--border);cursor:zoom-in}
+.gallery.big{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.gallery.big img{height:190px;object-fit:contain;background:var(--hover)}
 .action-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px;
   border-top:1px solid var(--border);background:var(--hover)}
 .like-btn.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
@@ -140,12 +142,22 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
 .comment .hd{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:4px}
 .comment .hd b{color:var(--text);font-size:13px}
 .comment .tx{white-space:pre-wrap;word-break:break-word;font-size:14px}
+.comment .c-del{margin-top:7px;padding:3px 9px;font-size:11.5px;color:var(--muted)}
+.comment .c-del:hover{color:var(--danger);border-color:var(--danger)}
 .comment-form{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--border)}
 .comment-form textarea{flex:1;min-height:62px;resize:vertical}
 
 /* 热度榜 */
 .hot{margin-top:22px}
-.hot h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:7px}
+.hot h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.hot h2 .ht{white-space:nowrap;flex:none}
+.hot h2 .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+/* 内联图标统一尺寸：只有 viewBox、没有 width/height 的 inline SVG，
+   在 flex 容器里会按默认 300×150 撑开（热度火焰曾被放大成半屏黑色图形）。 */
+.ic{width:18px;height:18px;flex:none;display:block}
+.btn .ic,.page-head .ic{width:15px;height:15px}
+.hot h2 .ic{width:19px;height:19px;color:var(--warn)}
 .hot-item{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer}
 .hot-item:last-child{border-bottom:0}
 .hot-item:hover{background:var(--hover)}
@@ -346,6 +358,18 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
   display:block;border-radius:50%}
 #meBtn:hover{transform:scale(1.07);box-shadow:0 0 0 3px var(--primary-soft)}
 
+/* 作者头像 / 名字 → 公开资料页 */
+.avatar-link{display:inline-flex;flex:none;cursor:pointer;border-radius:50%;
+  transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.avatar-link:hover{transform:scale(1.09);box-shadow:0 0 0 3px var(--primary-soft)}
+.user-link{cursor:pointer;color:var(--text);font-weight:600;
+  transition:color var(--dur) var(--ease)}
+.user-link:hover{color:var(--primary);text-decoration:underline;text-underline-offset:3px}
+.mod-author{display:flex;align-items:center;gap:7px;margin-top:9px;
+  font-size:12px;color:var(--muted)}
+.mod-author .avatar{width:23px;height:23px;font-size:10px}
+.mod-author .user-link{font-weight:600}
+
 /* 依赖模组 */
 .dep-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .dep-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);
@@ -425,7 +449,8 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
 const $ = s => document.querySelector(s);
 const state = {
   boot: null, me: null, route: null, page: 1, q: '', build: '',
-  postImages: [], modImage: '', modFile: null, modLoaders: [], modDeps: [], postFormat: 'plain',
+  postImages: [], modImage: '', modIntro: [], modFile: null,
+  modLoaders: [], modDeps: [], postFormat: 'plain',
   modUploading: false, busy: false,
 };
 function fmtSize(n){
@@ -532,12 +557,30 @@ function fmtTime(ts){
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 function fmtNum(n){ n = Number(n)||0; return n >= 10000 ? (n/10000).toFixed(1)+'w' : String(n); }
-function avatarHtml(u, size){
+function avatarHtml(u, size, clickable){
   const cls = 'avatar' + (size ? ' lg' : '');
-  if (u && u.avatar) return `<span class="${cls}"><img src="${esc(u.avatar)}" alt="" onerror="this.style.display='none'"></span>`;
-  const ch = (u && (u.displayName || u.username)) ? (u.displayName || u.username).slice(0,1).toUpperCase() : '?';
-  return `<span class="${cls}">${esc(ch)}</span>`;
+  const inner = (u && u.avatar)
+    ? `<img src="${esc(u.avatar)}" alt="" onerror="this.style.display='none'">`
+    : esc(((u && (u.displayName || u.username)) || '?').slice(0, 1).toUpperCase());
+  const span = `<span class="${cls}">${inner}</span>`;
+  const key = u && (u.id || u.username);
+  if (clickable === false || !key) return span;
+  const name = (u.displayName || u.username || '用户');
+  return `<span class="avatar-link" data-user="${esc(key)}" title="查看 ${esc(name)} 的主页">${span}</span>`;
 }
+/* 作者名也可点，统一走公开资料页 */
+function userLink(u, text){
+  const key = u && (u.id || u.username);
+  if (!key) return esc(text || '');
+  return `<span class="user-link" data-user="${esc(key)}" title="查看公开资料">${esc(text || u.displayName || u.username || '用户')}</span>`;
+}
+/* 捕获阶段拦截：头像/名字在帖子卡片内部，必须先于卡片的 onclick 处理 */
+document.addEventListener('click', e => {
+  const el = e.target && e.target.closest ? e.target.closest('[data-user]') : null;
+  if (!el) return;
+  e.preventDefault(); e.stopPropagation();
+  go('#/user/' + encodeURIComponent(el.dataset.user));
+}, true);
 async function api(path, opts){
   const o = Object.assign({ method: 'GET', headers: {} }, opts || {});
   const raw = o.body && (o.body instanceof ArrayBuffer || o.body instanceof Blob ||
@@ -570,12 +613,12 @@ function needLogin(){ if (!state.me) { toast('请先登录', 'err'); go('#/login
 
 /* ---------------- 抽屉 ---------------- */
 const ICON = {
-  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
-  box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
-  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
-  fire: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-1 .5-2 1-3 0 2 1 3 2 3 0-3-1-5 1-8z"/><path d="M12 22a7 7 0 0 0 7-7c0-3-2-5-3-7 0 3-1 4-2 5-1-2-1-4-1-6-3 2-8 5-8 11a7 7 0 0 0 7 4z"/></svg>',
-  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  home: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  box: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+  user: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  plus: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  fire: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-1 .5-2 1-3 0 2 1 3 2 3 0-3-1-5 1-8z"/><path d="M12 22a7 7 0 0 0 7-7c0-3-2-5-3-7 0 3-1 4-2 5-1-2-1-4-1-6-3 2-8 5-8 11a7 7 0 0 0 7 4z"/></svg>',
+  out: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
 };
 function navItems(){
   const arr = [
@@ -702,12 +745,12 @@ function mdToHtml(src){
 }
 
 /* ---------------- 文件上传（图片 / 模组包，带真实进度） ---------------- */
-// post=帖子配图 | mod=模组封面 | modfile=模组本体 | avatar=头像
+// post=帖子配图 | modcover=模组封面 | modintro=模组介绍图 | modfile=模组本体 | avatar=头像
 let uploadTarget = 'post';
 function pickImages(target){
   uploadTarget = target;
   const fp = $('#filePicker');
-  fp.multiple = (target === 'post');
+  fp.multiple = (target === 'post' || target === 'modintro');
   fp.accept = target === 'modfile'
     ? '.jar,.zip,.mrpack,application/java-archive,application/zip,application/octet-stream'
     : 'image/png,image/jpeg,image/gif,image/webp,image/avif,image/svg+xml';
@@ -720,7 +763,12 @@ $('#filePicker').addEventListener('change', async e => {
   e.target.value = '';
   if (!files.length) return;
   if (!needLogin()) return;
-  if (isModFile) files = files.slice(0, 1);   // 模组本体只允许 1 个
+  if (isModFile || target === 'modcover') files = files.slice(0, 1);   // 模组本体 / 封面都只允许 1 个
+  if (target === 'modintro') {
+    const room = Math.max(0, 9 - state.modIntro.length);
+    if (!room) { toast('介绍图最多 9 张，请先移除几张再上传', 'err'); return; }
+    files = files.slice(0, room);
+  }
   const maxMB = (state.boot && (isModFile ? state.boot.maxModMB : state.boot.maxUploadMB)) || (isModFile ? 30 : 10);
   for (const f of files) {
     if (f.size > maxMB * 1024 * 1024) { toast(`${f.name} 超过 ${maxMB}MB`, 'err'); continue; }
@@ -740,7 +788,8 @@ $('#filePicker').addEventListener('change', async e => {
         else tip.set('正在上传 ' + f.name + '　' + Math.round(pct * 100) + '%', '');
       });
       if (target === 'post') { state.postImages.push(d.url); renderUpGrid(); }
-      else if (target === 'mod') { state.modImage = d.url; renderModImage(); }
+      else if (target === 'modcover') { state.modImage = d.url; renderModImage(); }
+      else if (target === 'modintro') { state.modIntro.push(d.url); renderModIntro(); }
       else if (target === 'modfile') {
         state.modFile = { url: d.url, name: d.name || f.name, size: d.size || f.size };
         state.modUploading = false; renderModFile();       // 完成后在按钮下方显示文件
@@ -765,10 +814,23 @@ function renderUpGrid(){
 function renderModImage(){
   const box = $('#modImageBox'); if (!box) return;
   box.innerHTML = state.modImage
-    ? `<div class="up-item item-in"><img src="${esc(state.modImage)}" alt=""><button class="x" id="modImgX">×</button></div>`
+    ? `<div class="up-item item-in"><img src="${esc(state.modImage)}" alt="" class="zoomable"><button class="x" id="modImgX">×</button></div>`
     : '';
   const x = $('#modImgX');
   if (x) x.onclick = () => { state.modImage = ''; renderModImage(); };
+  const img = box.querySelector('.zoomable');
+  if (img) img.onclick = () => lightbox(img.src);
+}
+/* 模组介绍图：多张，发布页可点击放大预览、可单独移除 */
+function renderModIntro(){
+  const box = $('#modIntroBox'); if (!box) return;
+  box.innerHTML = state.modIntro.map((u, i) =>
+    `<div class="up-item item-in" style="animation-delay:${i * 55}ms">
+       <img src="${esc(u)}" alt="" class="zoomable"><button class="x" data-i="${i}" title="移除">×</button></div>`).join('');
+  box.querySelectorAll('.x').forEach(b => b.onclick = () => {
+    state.modIntro.splice(Number(b.dataset.i), 1); renderModIntro();
+  });
+  box.querySelectorAll('.zoomable').forEach(img => img.onclick = () => lightbox(img.src));
 }
 /* 模组文件上传进度条 */
 function setModProgress(pct, loaded, total, name){
@@ -855,7 +917,7 @@ async function renderHot(container){
   try {
     const d = await api('/api/hot?limit=10');
     if (!d.items.length) { container.innerHTML = ''; return; }
-    container.innerHTML = `<div class="hot"><h2>${ICON.fire} 热度排行榜 <span class="hint" style="font-weight:400">· 按点进帖子的次数</span></h2>
+    container.innerHTML = `<div class="hot"><h2>${ICON.fire}<span class="ht">热度排行榜</span><span class="hint" style="font-weight:400">· 按点进帖子的次数</span></h2>
       <div class="card">${d.items.map((x, i) => `
         <div class="hot-item" data-id="${esc(x.id)}">
           <span class="rank ${i < 3 ? 'top' : ''}">${i + 1}</span>
@@ -904,7 +966,7 @@ async function loadPosts(){
             <div class="t">${esc(p.title)}</div>
             <div class="ex">${esc(p.excerpt)}</div>
             <div class="meta">
-              <span class="au">${avatarHtml(p.author)} ${esc(p.author.displayName)}</span>
+              <span class="au">${avatarHtml(p.author)} ${userLink(p.author, p.author.displayName)}</span>
               <span>${fmtTime(p.createdAt)}</span>
               ${p.format === 'markdown' ? '<span class="badge">Markdown</span>' : ''}
               <span class="spacer"></span>
@@ -936,7 +998,7 @@ async function viewPost(id){
   $('#app').innerHTML = `
     <div class="card detail">
       <h1>${esc(p.title)}</h1>
-      <div class="by">${avatarHtml(p.author)} <b>${esc(p.author.displayName)}</b> · ${fmtTime(p.createdAt)} · 👁 ${fmtNum(p.views)} 浏览 ${p.format === 'markdown' ? '· <span class="badge">Markdown</span>' : ''}</div>
+      <div class="by">${avatarHtml(p.author)} <b>${userLink(p.author, p.author.displayName)}</b> · ${fmtTime(p.createdAt)} · 👁 ${fmtNum(p.views)} 浏览 ${p.format === 'markdown' ? '· <span class="badge">Markdown</span>' : ''}</div>
       <div class="article ${p.format === 'markdown' ? '' : 'plain'}">${bodyHtml}</div>
       ${p.images && p.images.length ? `<div class="gallery">${p.images.map(u => `<img src="${esc(u)}" alt="" loading="lazy">`).join('')}</div>` : ''}
       <div class="action-bar" style="margin:16px -18px -20px">
@@ -986,13 +1048,30 @@ async function loadComments(id){
   if (!box) return;
   try {
     const d = await api(`/api/posts/${id}/comments`);
-    box.innerHTML = d.items.length ? d.items.map(c => `
-      <div class="comment">${avatarHtml(c.author)}<div class="bd">
-        <div class="hd"><b>${esc(c.author.displayName)}</b> @${esc(c.author.username)} · ${fmtTime(c.createdAt)}</div>
-        <div class="tx">${esc(c.content)}</div></div></div>`).join('')
+    box.innerHTML = d.items.length ? d.items.map((c, i) => `
+      <div class="comment item-in" style="animation-delay:${i * 55}ms">${avatarHtml(c.author)}<div class="bd">
+        <div class="hd"><b>${userLink(c.author, c.author.displayName)}</b> @${esc(c.author.username)} · ${fmtTime(c.createdAt)}</div>
+        <div class="tx">${esc(c.content)}</div>
+        ${c.canDelete ? `<button class="btn sm ghost c-del" data-del="${esc(c.id)}">🗑 删除评论</button>` : ''}
+      </div></div>`).join('')
       : '<div class="empty" style="padding:26px">还没有评论，来抢沙发</div>';
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => deleteComment(b.dataset.del, id));
     const n = $('#ccNum'); if (n) n.textContent = '(' + fmtNum(d.items.length) + ')';
   } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+/* 删除自己的评论：二次确认，成功后刷新列表与计数 */
+async function deleteComment(cid, postId){
+  const v = await openModal(`<h3>删除这条评论？</h3>
+    <p class="desc">删除后其他人将看不到这条评论，此操作不可撤销。</p>
+    <div class="modal-actions"><button class="btn" id="rCancel">取消</button>
+      <button class="btn danger" id="rOk">确认删除</button></div>`);
+  if (v !== 'submit') return;
+  const tip = toast('正在删除评论…', '', { loading:true });
+  try {
+    await api('/api/comments/' + encodeURIComponent(cid) + '/delete', { method:'POST' });
+    tip.done('评论已删除');
+    await loadComments(postId);
+  } catch (e) { tip.fail(e.message); }
 }
 async function reportDialog(type, id){
   if (!needLogin()) return;
@@ -1045,7 +1124,7 @@ async function viewNew(editId){
       <div class="field"><label>正文</label><textarea class="input" id="pBody" placeholder="写点什么吧…">${esc(edit ? edit.body : '')}</textarea></div>
       <div class="field"><label>配图（可选，最多 9 张）</label>
         <button class="btn sm" id="addImgs">＋ 选择图片</button>
-        <div class="hint" style="margin-top:6px">单张不超过 ${(state.boot&&state.boot.maxUploadMB)||10}MB，图片存放在 B2 存储桶。</div>
+        <div class="hint" style="margin-top:6px">单张不超过 ${(state.boot&&state.boot.maxUploadMB)||10}MB，最多 9 张。</div>
         <div class="up-grid" id="upGrid"></div></div>
       <div class="field hide" id="previewBox"><label>Markdown 预览</label><div class="card article" id="mdPreview" style="padding:14px"></div></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1111,7 +1190,8 @@ async function loadMods(){
         <div class="mod-cover">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : '🧩'}</div>
         <div class="mod-body"><div class="n">${esc(m.name)}</div><div class="s">${esc(m.summary)}</div>
           <div class="tags">${m.hasFile ? '<span class="tag v">⬇ 可下载' + (m.fileSize ? ' · ' + fmtSize(m.fileSize) : '') + '</span>' : ''}${m.loaders.slice(0,3).map(x => `<span class="tag">${esc(x)}</span>`).join('')}${m.versions.slice(0,2).map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div>
-          <div class="hint" style="margin-top:9px">${esc(m.author.displayName)} · ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
+          <div class="mod-author">${avatarHtml(m.author)} ${userLink(m.author, m.author.displayName)}
+            <span>· ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</span></div>
         </div></div>`).join('')}</div>`
       : '<div class="card empty"><span class="big">🧩</span>还没有模组，来发布第一个吧</div>';
     box.querySelectorAll('[data-id]').forEach(el => el.onclick = () => go('#/mod/' + el.dataset.id));
@@ -1129,11 +1209,16 @@ async function viewMod(id){
     const d = await api('/api/mods/' + encodeURIComponent(id)); const m = d.mod;
     $('#app').innerHTML = `<div class="card detail">
       <h1>${esc(m.name)}</h1>
-      <div class="by">${avatarHtml(m.author)} <b>${esc(m.author.displayName)}</b> · ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
-      ${m.image ? `<img src="${esc(m.image)}" style="max-height:420px;border-radius:12px;display:block;margin-bottom:16px" alt="">` : ''}
+      <div class="by">${avatarHtml(m.author)} <b>${userLink(m.author, m.author.displayName)}</b> · ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
+      ${m.image ? `<div class="field" style="margin-top:16px"><label>封面图 <span class="hint" style="font-weight:400">· 点击可放大</span></label>
+        <div class="gallery"><img src="${esc(m.image)}" alt="封面图" loading="lazy"></div></div>` : ''}
       <div class="article plain">${esc(m.summary)}</div>
+      ${(m.introImages && m.introImages.length) ? `<div class="field" style="margin-top:20px">
+        <label>模组介绍图 <span class="hint" style="font-weight:400">· 共 ${m.introImages.length} 张，点击可放大查看</span></label>
+        <div class="gallery big">${m.introImages.map((u, i) =>
+          `<img src="${esc(u)}" alt="介绍图 ${i + 1}" loading="lazy" class="item-in" style="animation-delay:${i * 55}ms">`).join('')}</div></div>` : ''}
       ${m.file ? `<div class="download-box"><span style="font-size:22px">📦</span>
-        <div class="di"><b>${esc(m.file.name)}</b><small>${fmtSize(m.file.size)} · 由 B2 存储桶提供，经代理下载</small></div>
+        <div class="di"><b>${esc(m.file.name)}</b><small>${fmtSize(m.file.size)} · 点击下方按钮下载</small></div>
         <a class="btn primary sm" href="${esc(m.file.url)}" target="_blank" rel="noopener noreferrer">⬇ 下载模组</a>
         <button class="btn sm ghost" id="copyDl">复制链接</button></div>`
         : '<div class="hint" style="margin:18px 0">该模组暂未提供可下载文件，仅展示信息。</div>'}
@@ -1157,7 +1242,7 @@ async function viewMod(id){
       try { await navigator.clipboard.writeText(m.file.url); toast('下载链接已复制', 'ok'); }
       catch { toast('复制失败，请长按链接复制', 'err'); }
     };
-    const im = $('#app').querySelector('img[style*="max-height"]'); if (im) im.onclick = () => lightbox(im.src);
+    $('#app').querySelectorAll('.gallery img').forEach(img => img.onclick = () => lightbox(img.src));
   } catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
 const LOADER_OPTIONS = ['Forge','Fabric','NeoForge','Quilt','Paper','Spigot','Bukkit','Sponge','Fabric API','其他'];
@@ -1171,6 +1256,7 @@ async function viewModNew(editId){
     if (!edit.canEdit) { toast('只能编辑自己发布的模组', 'err'); go('#/mod/' + editId); return; }
   }
   state.modImage   = edit ? (edit.image || '') : '';
+  state.modIntro   = edit ? [...(edit.introImages || [])] : [];
   state.modLoaders = edit ? [...(edit.loaders || [])] : [];
   state.modDeps    = edit ? (edit.dependencies || []).map(d => ({ name:String(d.name||''), url:String(d.url||'') })) : [];
   state.modFile    = edit && edit.file
@@ -1185,12 +1271,18 @@ async function viewModNew(editId){
         value="${esc(edit ? edit.name : '')}" placeholder="例如：不知名优化模组"></div>
       <div class="field"><label>模组简介 *</label><textarea class="input" id="mSummary" style="min-height:110px"
         placeholder="介绍模组的功能、特色与使用方法…">${esc(edit ? edit.summary : '')}</textarea></div>
-      <div class="field"><label>模组使用图（可选）</label>
-        <button class="btn sm" id="mAddImg">＋ 上传图片</button><div class="up-grid" id="modImageBox"></div></div>
+      <div class="field"><label>封面图（可选，模组中心列表显示）</label>
+        <button class="btn sm" id="mAddImg">＋ 上传封面图</button>
+        <div class="hint" style="margin-top:6px">单张不超过 ${(state.boot&&state.boot.maxUploadMB)||10}MB，建议用清晰的横图；点击图片可放大。</div>
+        <div class="up-grid" id="modImageBox"></div></div>
+      <div class="field"><label>模组介绍图（可选，最多 9 张）</label>
+        <button class="btn sm" id="mAddIntro">＋ 上传介绍图</button>
+        <div class="hint" style="margin-top:6px">展示在模组详情页，访客可点击放大查看；上传后可逐张移除。</div>
+        <div class="up-grid" id="modIntroBox"></div></div>
       <div class="field"><label>模组文件（可选，选了就能下载）</label>
         <button class="btn sm" id="mAddFile">📦 选择 .jar / .zip / .mrpack</button>
         <div style="margin-top:10px" id="modFileBox"></div>
-        <div class="hint" style="margin-top:6px">单个不超过 ${(state.boot&&state.boot.maxModMB)||30}MB。文件与本页图片一样存进 B2，下载走同一个代理域名；文件内容哈希会写进路径，重传新版不会命中旧缓存。</div></div>
+        <div class="hint" style="margin-top:6px">单个不超过 ${(state.boot&&state.boot.maxModMB)||30}MB，上传完成后可删除或重新上传。</div></div>
       <div class="field"><label>依赖模组（可选）</label>
         <button class="btn sm" id="mAddDep">＋ 添加依赖模组</button>
         <div id="depBox"></div></div>
@@ -1201,7 +1293,8 @@ async function viewModNew(editId){
         <div class="chips" id="loaderChips">${LOADER_OPTIONS.map(x => `<span class="chip ${state.modLoaders.includes(x) ? 'on' : ''}" data-v="${esc(x)}">${esc(x)}</span>`).join('')}</div></div>
       <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="mPublish">${edit ? '保存修改' : '发布模组'}</button></div>
     </div>`;
-  $('#mAddImg').onclick = () => pickImages('mod');
+  $('#mAddImg').onclick = () => pickImages('modcover');
+  $('#mAddIntro').onclick = () => pickImages('modintro');
   $('#mAddFile').onclick = () => pickImages('modfile');
   $('#mAddDep').onclick = addDepDialog;
   $('#loaderChips').querySelectorAll('.chip').forEach(c => c.onclick = () => {
@@ -1221,8 +1314,8 @@ async function viewModNew(editId){
     try {
       const f = state.modFile;
       const payload = {
-        name, summary, image:state.modImage, versions, loaders:state.modLoaders,
-        dependencies:state.modDeps,
+        name, summary, image:state.modImage, introImages:state.modIntro,
+        versions, loaders:state.modLoaders, dependencies:state.modDeps,
         fileUrl: f ? f.url : '', fileName: f ? f.name : '', fileSize: f ? f.size : 0,
       };
       const d = edit
@@ -1233,8 +1326,67 @@ async function viewModNew(editId){
     } catch (e) { toast(e.message, 'err'); btnBusy($('#mPublish'), false); }
   };
   renderModImage();
+  renderModIntro();
   renderModFile();
   renderDeps();
+}
+
+/* ---------------- 公开用户资料（游客也能看） ---------------- */
+async function viewUser(key){
+  $('#app').innerHTML = loadingHtml('正在加载用户资料…');
+  let d;
+  try { d = await api('/api/users/' + encodeURIComponent(key)); }
+  catch (e) {
+    $('#app').innerHTML = `<div class="card empty"><span class="big">👤</span>${esc(e.message)}<br><br>
+      <button class="btn sm" onclick="location.hash='#/community'">返回社区</button></div>`;
+    return;
+  }
+  const u = d.profile, s = d.stats;
+  const postCard = (p, i) => `<div class="card post-card item-in" style="animation-delay:${i * 55}ms" data-post="${esc(p.id)}">
+    ${p.images && p.images[0] ? `<img class="post-thumb" src="${esc(p.images[0])}" alt="" loading="lazy">` : ''}
+    <div style="padding:13px 16px"><div class="t">${esc(p.title)}</div>
+      <div class="ex">${esc(p.excerpt)}</div>
+      <div class="meta"><span>${fmtTime(p.createdAt)}</span><span class="spacer"></span>
+        <span>👁 ${fmtNum(p.views)}</span><span>♥ ${fmtNum(p.likes)}</span><span>💬 ${fmtNum(p.commentCount)}</span></div>
+    </div></div>`;
+  const modCard = (m, i) => `<div class="mod-card item-in" style="animation-delay:${i * 55}ms" data-mod="${esc(m.id)}">
+    <div class="mod-cover">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : '🧩'}</div>
+    <div class="mod-body"><div class="n">${esc(m.name)}</div><div class="s">${esc(m.summary)}</div>
+      <div class="tags">${m.hasFile ? '<span class="tag v">⬇ 可下载</span>' : ''}${m.loaders.slice(0,2).map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>
+      <div class="hint" style="margin-top:9px">${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
+    </div></div>`;
+  $('#app').innerHTML = `
+    <div class="page-head"><h1>用户资料</h1><span class="spacer"></span>
+      <button class="btn sm ghost" onclick="location.hash='#/community'">← 返回社区</button></div>
+    <div class="card">
+      <div class="profile"><span>${avatarHtml(u, null, false)}</span>
+        <div class="info"><h2>${esc(u.displayName)}</h2>
+          <div class="m">@${esc(u.username)} ${u.role === 'admin' ? '· <span class="badge">管理员</span>' : ''}</div>
+          <div class="m">加入于 ${fmtTime(u.createdAt)}</div></div>
+        ${u.isMe ? '<button class="btn sm" id="toMyProfile">✎ 编辑我的资料</button>' : ''}
+      </div>
+      ${u.bio ? `<div class="section" style="padding-top:0"><div class="hint" style="white-space:pre-wrap;word-break:break-word;color:var(--text);font-size:14px">${esc(u.bio)}</div></div>` : ''}
+      <div class="stats">
+        <div class="stat"><b>${fmtNum(s.posts)}</b><span>帖子</span></div>
+        <div class="stat"><b>${fmtNum(s.mods)}</b><span>模组</span></div>
+        <div class="stat"><b>${fmtNum(s.comments)}</b><span>评论</span></div>
+        <div class="stat"><b>${fmtNum(s.likes)}</b><span>获赞</span></div>
+      </div>
+    </div>
+
+    <div class="page-head" style="margin-top:22px"><h1 style="font-size:17px">📝 发布的帖子</h1>
+      <span class="sub">共 ${fmtNum(s.posts)} 条</span></div>
+    <div id="uPosts">${d.posts.length ? d.posts.map(postCard).join('')
+      : '<div class="card empty" style="padding:30px">还没有发布帖子</div>'}</div>
+
+    <div class="page-head" style="margin-top:22px"><h1 style="font-size:17px">🧩 发布的模组</h1>
+      <span class="sub">共 ${fmtNum(s.mods)} 个</span></div>
+    <div id="uMods">${d.mods.length ? `<div class="mod-grid">${d.mods.map(modCard).join('')}</div>`
+      : '<div class="card empty" style="padding:30px">还没有发布模组</div>'}</div>`;
+
+  $('#app').querySelectorAll('[data-post]').forEach(el => el.onclick = () => go('#/post/' + el.dataset.post));
+  $('#app').querySelectorAll('[data-mod]').forEach(el => el.onclick = () => go('#/mod/' + el.dataset.mod));
+  const mp = $('#toMyProfile'); if (mp) mp.onclick = () => go('#/me');
 }
 
 /* ---------------- 我发布的内容 ---------------- */
@@ -1269,7 +1421,7 @@ async function viewMe(){
   $('#app').innerHTML = `
     <div class="page-head"><h1>个人中心</h1></div>
     <div class="card">
-      <div class="profile"><span id="avatarPreview">${avatarHtml(u)}</span>
+      <div class="profile"><span id="avatarPreview">${avatarHtml(u, null, false)}</span>
         <div class="info"><h2>${esc(u.displayName || u.username)}</h2>
           <div class="m">@${esc(u.username)} · ${esc(u.email)} ${u.role === 'admin' ? '· <span class="badge">管理员</span>' : ''}</div>
           <div class="m">注册于 ${fmtTime(u.createdAt)}</div></div></div>
@@ -1286,7 +1438,7 @@ async function viewMe(){
         <div class="field"><label>头像</label>
           <div style="display:flex;gap:8px;align-items:center"><input class="input" id="avatarUrl" value="${esc(u.avatar)}" placeholder="留空则使用首字母头像">
             <button class="btn sm" id="pickAvatar">上传</button></div>
-          <div class="hint" style="margin-top:5px">也可直接粘贴代理图片链接。</div></div>
+          <div class="hint" style="margin-top:5px">也可直接粘贴图片链接。</div></div>
         <button class="btn primary" id="saveProfile">保存资料</button></div>
       ${u.hasPassword ? `<div class="section"><h3>修改密码</h3>
         <div class="row2"><div class="field"><label>原密码</label><input class="input" type="password" id="oldPw"></div>
@@ -1422,6 +1574,7 @@ function parseRoute(){
   if (a === 'mod' && b && c === 'edit') return { name:'modedit', id:b };
   if (a === 'mod' && b) return { name:'mod', id:b };
   if (a === 'me') return { name:'me' };
+  if (a === 'user' && b) return { name:'user', id:decodeURIComponent(b) };
   if (a === 'login') return { name:'login' };
   return { name:'community' };
 }
@@ -1443,6 +1596,7 @@ async function renderRoute(){
     else if (r.name === 'modnew') await viewModNew();
     else if (r.name === 'modedit') await viewModNew(r.id);
     else if (r.name === 'me') await viewMe();
+    else if (r.name === 'user') await viewUser(r.id);
     else viewLogin();
   } catch (e) {
     $('#app').innerHTML = `<div class="card empty">页面加载失败：${esc(e.message)}</div>`;

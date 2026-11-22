@@ -8,7 +8,7 @@ import HTML from './index.html';
 /* ---------------- 构建标记 ----------------
    每次交付会改这一行。访问 /api/health 或 /api/diag 看 build 字段，
    就能立刻确认浏览器打到的是不是这一版，排除「改了没部署生效」。   */
-const BUILD_TAG = 'bzm-20261122-v7-editor-anim';
+const BUILD_TAG = 'bzm-20261122-v10-icon-fix';
 let lastError = null;   // 同一 isolate 内记录最近一次 500，供 /api/diag 读取
 
 function redact(s) {
@@ -106,8 +106,9 @@ const MOD_COLUMNS = [
   ['file_name',     "TEXT NOT NULL DEFAULT ''"],
   ['file_size',     'INTEGER NOT NULL DEFAULT 0'],
   ['dependencies',  "TEXT NOT NULL DEFAULT '[]'"],   // 依赖模组 JSON 数组
+  ['intro_images',  "TEXT NOT NULL DEFAULT '[]'"],   // 模组介绍图（详情页可放大），与封面 image 分开
 ];
-const MOD_SCHEMA_KEY = 'schema:mods:v3';
+const MOD_SCHEMA_KEY = 'schema:mods:v4';
 let modSchemaState = null;   // 单个 isolate 内的缓存
 
 async function probeModColumns(env) {
@@ -439,7 +440,7 @@ function awsEncode(seg) {
   return encodeURIComponent(seg).replace(/[!'()*]/g, ch => '%' + ch.charCodeAt(0).toString(16).toUpperCase());
 }
 async function b2Put(env, c, key, body, contentType) {
-  need(c.b2KeyId && c.b2AppKey && c.b2Bucket, 'B2 存储未配置', 503);
+  need(c.b2KeyId && c.b2AppKey && c.b2Bucket, '文件服务未配置，请联系管理员', 503);
   const region = c.b2Region || deriveRegion(c.b2Endpoint);
   const host = `${c.b2Bucket}.${c.b2Endpoint}`;
   const canonicalUri = '/' + key.split('/').map(awsEncode).join('/');
@@ -479,7 +480,8 @@ async function b2Put(env, c, key, body, contentType) {
   });
   if (!res.ok) {
     const t = (await res.text()).slice(0, 200);
-    throw new ApiError('上传到 B2 失败：HTTP ' + res.status + ' ' + t, 502, 'b2_failed');
+    console.error('[bzm] upstream upload failed', res.status, t);  // 细节只进日志
+    throw new ApiError('上传失败，请稍后再试', 502, 'upload_failed');
   }
   return `${c.publicBase}${c.proxyAlias}/${key}`;
 }
@@ -507,6 +509,18 @@ function cleanDependencies(v) {
     if (url && !/^https?:\/\//i.test(url) && !/^#\/mod\//.test(url)) url = '';
     out.push({ name, url });
     if (out.length >= 20) break;
+  }
+  return out;
+}
+// 模组介绍图：最多 9 张，和帖子配图一样只放行本站代理域名的链接
+function cleanGallery(c, v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  // 先遍历（最多 30 项防滥用）、过滤与去重，最后才截断到 9 张
+  for (const x of v.slice(0, 30)) {
+    const u = safeProxyUrl(c, x);
+    if (u && !out.includes(u)) out.push(u);
+    if (out.length >= 9) break;
   }
   return out;
 }
@@ -650,9 +664,9 @@ async function handleApi(request, env, c, path, me) {
     });
     await step('explain_insert_mod', async () => {
       await env.DB.prepare(`EXPLAIN INSERT INTO mods
-        (id,author_id,name,summary,image,versions,loaders,dependencies,file_url,file_name,file_size,views,status,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
-        .bind('x','x','x','x','','[]','[]','[]','','',0,0,0).all();
+        (id,author_id,name,summary,image,intro_images,versions,loaders,dependencies,file_url,file_name,file_size,views,status,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
+        .bind('x','x','x','x','','[]','[]','[]','[]','','',0,0,0).all();
       return 'ok';
     });
     const bad = out.steps.filter(s => !s.ok);
@@ -669,8 +683,8 @@ async function handleApi(request, env, c, path, me) {
       ready: !!schema?.ready,
       note: schema?.note || '',
       hint: schema?.ready
-        ? 'mods 三列齐全，模组下载功能可用'
-        : 'mods 缺列或探测失败，请在 D1 Studio 执行 迁移_模组文件.sql 的 3 条 ALTER',
+        ? 'mods 五列齐全，模组下载 / 依赖 / 介绍图功能可用'
+        : 'mods 缺列或探测失败，请在 D1 Studio 执行 迁移_模组文件.sql 的 5 条 ALTER',
     });
   }
   if (path === '/api/bootstrap') {
@@ -681,6 +695,60 @@ async function handleApi(request, env, c, path, me) {
       mailEnabled: !!(c.brevoKey && c.brevoFrom),
       pageSize: c.pageSize, maxUploadMB: c.maxUploadMB, maxModMB: c.maxModMB,
       proxyBase: c.publicBase, proxyAlias: c.proxyAlias,
+    });
+  }
+
+  /* ---- 公开用户资料（游客也能看；只下发公开字段） ----
+     支持 /api/users/<id> 或 /api/users/<username>。
+     绝不返回 email / last_login_at / hasPassword / 密码散列 / token_version。 */
+  const um = path.match(/^\/api\/users\/([^/]+)$/);
+  if (um && method === 'GET') {
+    let key;
+    try { key = decodeURIComponent(um[1]).trim().slice(0, 64); }
+    catch { key = ''; }
+    need(key.length > 0 && key.length <= 64, '用户不存在', 404, 'not_found');
+    const row = await env.DB.prepare(`SELECT id,username,display_name,bio,avatar,role,status,created_at
+      FROM users WHERE id=? OR username=?`).bind(key, key).first();
+    if (!row || row.status !== 'active') throw new ApiError('用户不存在', 404, 'not_found');
+
+    const uid2 = row.id;
+    const [pc, mc, cc, lc, pr, mr] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) AS n FROM posts WHERE author_id=? AND status='normal'").bind(uid2).first(),
+      env.DB.prepare("SELECT COUNT(*) AS n FROM mods WHERE author_id=? AND status='normal'").bind(uid2).first(),
+      env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE author_id=? AND status='normal'").bind(uid2).first(),
+      env.DB.prepare("SELECT COALESCE(SUM(likes),0) AS n FROM posts WHERE author_id=? AND status='normal'").bind(uid2).first(),
+      env.DB.prepare(`SELECT id,title,body,format,images,views,likes,comment_count,created_at
+        FROM posts WHERE author_id=? AND status='normal'
+        ORDER BY created_at DESC, rowid DESC LIMIT 20`).bind(uid2).all(),
+      env.DB.prepare(`SELECT id,name,summary,image,versions,loaders,file_url,file_size,views,created_at
+        FROM mods WHERE author_id=? AND status='normal'
+        ORDER BY created_at DESC, rowid DESC LIMIT 20`).bind(uid2).all(),
+    ]);
+    return ok({
+      profile: {
+        id: uid2, username: row.username,
+        displayName: row.display_name || row.username,
+        bio: row.bio || '', avatar: row.avatar || '',
+        role: row.role, createdAt: row.created_at,
+        isMe: !!me && me.id === uid2,
+      },
+      stats: {
+        posts: Number(pc?.n || 0), mods: Number(mc?.n || 0),
+        comments: Number(cc?.n || 0), likes: Number(lc?.n || 0),
+      },
+      posts: (pr.results || []).map(x => ({
+        id: x.id, title: x.title,
+        excerpt: excerpt(x.body || ''),
+        images: parseJSON(x.images, []).slice(0, 1),
+        views: Number(x.views || 0), likes: Number(x.likes || 0),
+        commentCount: Number(x.comment_count || 0), createdAt: x.created_at,
+      })),
+      mods: (mr.results || []).map(x => ({
+        id: x.id, name: x.name, summary: x.summary, image: x.image,
+        versions: parseJSON(x.versions, []), loaders: parseJSON(x.loaders, []),
+        hasFile: !!x.file_url, fileSize: Number(x.file_size || 0),
+        views: Number(x.views || 0), createdAt: x.created_at,
+      })),
     });
   }
 
@@ -897,6 +965,7 @@ async function handleApi(request, env, c, path, me) {
     return ok({ items: (r.results || []).map(x => ({
       id: x.id, content: x.content, createdAt: x.created_at,
       author: { id: x.author_id, username: x.username, displayName: x.display_name, avatar: x.avatar },
+      canDelete: canEdit(me, x.author_id),
     })) });
   }
   if ((m = path.match(/^\/api\/posts\/([a-f0-9-]{36})\/comments$/)) && method === 'POST') {
@@ -912,6 +981,19 @@ async function handleApi(request, env, c, path, me) {
       .bind(cid, id, u.id, content, t).run();
     await env.DB.prepare('UPDATE posts SET comment_count=comment_count+1 WHERE id=?').bind(id).run();
     return ok({ id: cid, createdAt: t });
+  }
+  // 删除自己的评论（作者本人或管理员）；软删保留审计，列表只查 status='normal'
+  if ((m = path.match(/^\/api\/comments\/([a-f0-9-]{36})\/delete$/)) && method === 'POST') {
+    const u = await requireUser(request, env);
+    const cRow = await env.DB.prepare('SELECT author_id,post_id,status FROM comments WHERE id=?').bind(m[1]).first();
+    if (!cRow || cRow.status !== 'normal') throw new ApiError('评论不存在或已删除', 404, 'not_found');
+    need(canEdit(u, cRow.author_id), '只能删除自己的评论', 403, 'forbidden');
+    await rateLimit(env, `delcomment:${u.id}`, 3);
+    await env.DB.prepare("UPDATE comments SET status='deleted' WHERE id=?").bind(m[1]).run();
+    await env.DB.prepare('UPDATE posts SET comment_count=MAX(0,comment_count-1) WHERE id=?')
+      .bind(cRow.post_id).run();
+    const p = await env.DB.prepare('SELECT comment_count FROM posts WHERE id=?').bind(cRow.post_id).first();
+    return ok({ deleted: true, commentCount: Number(p?.comment_count || 0) });
   }
   if (path === '/api/hot' && method === 'GET') {
     const limit = clamp(parseInt(new URL(request.url).searchParams.get('limit') || '10', 10) || 10, 1, 20);
@@ -954,6 +1036,7 @@ async function handleApi(request, env, c, path, me) {
     need(loaders.length > 0, '请至少选择一个加载器');
     await rateLimit(env, `mod:${u.id}`, 20);
     const image = safeImageUrl(env, c, d.image) || '';
+    const introImages = cleanGallery(c, d.introImages);
     const fileUrl = safeModFileUrl(c, d.fileUrl) || '';
     const fileName = normLine(d.fileName, 120);
     const fileSize = clamp(parseInt(d.fileSize, 10) || 0, 0, 60 * 1024 * 1024);
@@ -961,10 +1044,11 @@ async function handleApi(request, env, c, path, me) {
     need(!fileUrl || !!fileName, '模组文件缺少文件名');
     const id = uid(), t = now();
     await env.DB.prepare(`INSERT INTO mods
-      (id,author_id,name,summary,image,versions,loaders,dependencies,file_url,file_name,file_size,views,status,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
-      .bind(id, u.id, name, summary, image, JSON.stringify(versions), JSON.stringify(loaders),
-        JSON.stringify(dependencies), fileUrl, fileName, fileSize, t, t).run();
+      (id,author_id,name,summary,image,intro_images,versions,loaders,dependencies,file_url,file_name,file_size,views,status,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
+      .bind(id, u.id, name, summary, image, JSON.stringify(introImages),
+        JSON.stringify(versions), JSON.stringify(loaders), JSON.stringify(dependencies),
+        fileUrl, fileName, fileSize, t, t).run();
     return ok({ id });
   }
   if ((m = path.match(/^\/api\/mods\/([a-f0-9-]{36})$/)) && method === 'GET') {
@@ -976,6 +1060,7 @@ async function handleApi(request, env, c, path, me) {
       id: r.id, name: r.name, summary: r.summary, image: r.image,
       versions: parseJSON(r.versions, []), loaders: parseJSON(r.loaders, []),
       dependencies: parseJSON(r.dependencies, []),
+      introImages: parseJSON(r.intro_images, []),
       file: r.file_url ? { url: r.file_url, name: r.file_name || '模组文件', size: Number(r.file_size || 0) } : null,
       author: { id: r.author_id, username: r.username, displayName: r.display_name, avatar: r.avatar },
       views: r.views + 1, createdAt: r.created_at, updatedAt: r.updated_at,
@@ -995,6 +1080,7 @@ async function handleApi(request, env, c, path, me) {
     need(versions.length > 0, '请至少填写一个支持的版本');
     need(loaders.length > 0, '请至少选择一个加载器');
     const image = safeImageUrl(env, c, d.image) || '';
+    const introImages = cleanGallery(c, d.introImages);
     const fileUrl = safeModFileUrl(c, d.fileUrl) || '';
     const fileName = normLine(d.fileName, 120);
     const fileSize = clamp(parseInt(d.fileSize, 10) || 0, 0, 60 * 1024 * 1024);
@@ -1002,10 +1088,11 @@ async function handleApi(request, env, c, path, me) {
     need(!fileUrl || !!fileName, '模组文件缺少文件名');
     await rateLimit(env, `edit:${u.id}`, 5);
     const t = now();
-    await env.DB.prepare(`UPDATE mods SET name=?,summary=?,image=?,versions=?,loaders=?,dependencies=?,
+    await env.DB.prepare(`UPDATE mods SET name=?,summary=?,image=?,intro_images=?,versions=?,loaders=?,dependencies=?,
       file_url=?,file_name=?,file_size=?,updated_at=? WHERE id=?`)
-      .bind(name, summary, image, JSON.stringify(versions), JSON.stringify(loaders),
-        JSON.stringify(dependencies), fileUrl, fileName, fileSize, t, m[1]).run();
+      .bind(name, summary, image, JSON.stringify(introImages),
+        JSON.stringify(versions), JSON.stringify(loaders), JSON.stringify(dependencies),
+        fileUrl, fileName, fileSize, t, m[1]).run();
     return ok({ id: m[1], updatedAt: t });
   }
 
