@@ -259,6 +259,134 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
   .stat:nth-child(2){border-right:0}
   .page-head h1{font-size:18px}
 }
+
+/* ============================================================
+   平缓过渡体系（时长较长、曲线柔和；放在最后覆盖前面的 .15s）
+   ============================================================ */
+:root{
+  --dur:520ms;                 /* 主过渡时长 */
+  --dur-fast:340ms;            /* 进度条等反馈 */
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+.btn,.input,textarea.input,select.input,.chip,.tag,.badge,.rank,.card,.mod-card,
+.post-card,.hot-item,.dr-item,.seg button,.tabs button,.avatar,.up-item,.file-chip,
+.toast,.modal,.mask,.drawer,.drawer-mask,.dep-item,.stat,.comment,.action-bar,
+.page-head,.download-box,.gallery img,#meBtn,.mine-item,.upload-progress{
+  transition:background-color var(--dur) var(--ease),
+             border-color var(--dur) var(--ease),
+             color var(--dur) var(--ease),
+             box-shadow var(--dur) var(--ease),
+             transform var(--dur) var(--ease),
+             opacity var(--dur) var(--ease),
+             width var(--dur-fast) var(--ease);
+}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:translateY(0) scale(.97)}
+.btn.primary:hover{box-shadow:0 8px 22px -8px var(--primary)}
+.post-card:hover{transform:translateY(-3px);box-shadow:0 12px 30px -14px rgba(30,34,48,.28)}
+.mod-card:hover{transform:translateY(-5px);box-shadow:0 16px 34px -16px rgba(30,34,48,.35)}
+.chip:hover{transform:translateY(-2px);border-color:var(--primary)}
+.hot-item:hover{padding-left:20px}
+.dr-item:hover{padding-left:19px}
+
+/* 页面进入 / 列表逐项渐入 */
+@keyframes pageIn{from{opacity:0;transform:translateY(16px) scale(.994)}to{opacity:1;transform:none}}
+@keyframes itemIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.page-anim{animation:pageIn var(--dur) var(--ease) both}
+.item-in{animation:itemIn var(--dur) var(--ease) both}
+
+/* 旋转指示器 */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);
+  border-top-color:var(--primary);border-radius:50%;animation:spin .9s linear infinite;flex:none}
+.spinner.sm{width:14px;height:14px;border-width:2px}
+.spinner.big{width:30px;height:30px;border-width:3px}
+.spinner.light{border-color:rgba(255,255,255,.3);border-top-color:#fff}
+
+/* 加载骨架 */
+.loading-box{padding:34px 20px;text-align:center;color:var(--muted)}
+.loading-box .lt{margin:12px 0 18px;font-size:13px;letter-spacing:.4px}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skeleton{height:12px;border-radius:8px;margin:0 auto 10px;
+  background:linear-gradient(90deg,var(--hover) 25%,var(--border) 50%,var(--hover) 75%);
+  background-size:200% 100%;animation:shimmer 1.8s linear infinite}
+.skeleton.sk1{width:82%}.skeleton.sk2{width:64%}.skeleton.sk3{width:73%;height:40px;border-radius:12px}
+
+/* 顶部全局请求进度条 */
+.top-progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:150;opacity:0;
+  background:linear-gradient(90deg,var(--primary),#8b5cf6,var(--primary));
+  background-size:200% 100%;box-shadow:0 0 12px var(--primary);
+  transition:width var(--dur-fast) var(--ease),opacity var(--dur) var(--ease)}
+.top-progress.on{opacity:1}
+@keyframes flow{to{background-position:200% 0}}
+.top-progress.on{animation:flow 1.6s linear infinite}
+
+/* 上传进度条 */
+.upload-progress{margin-top:12px;padding:13px 14px;border:1px solid var(--border);
+  border-radius:12px;background:var(--hover)}
+.up-head{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;margin-bottom:10px}
+.up-head .spinner{width:15px;height:15px}
+.up-pct{margin-left:auto;color:var(--primary);font-variant-numeric:tabular-nums}
+.up-track{height:9px;border-radius:99px;background:var(--card);border:1px solid var(--border);overflow:hidden}
+.up-fill{height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--primary),#8b5cf6);
+  transition:width var(--dur-fast) var(--ease)}
+.up-sub{margin-top:8px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* 上传完成后的文件操作 */
+.up-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.file-chip{animation:itemIn var(--dur) var(--ease) both}
+
+/* 右上角头像：独立修复，不再复用 grid 版 .avatar 的外壳 */
+#meBtn{width:34px;height:34px;min-width:34px;padding:0;border-radius:50%;overflow:hidden;
+  position:relative;display:block;flex:none;border:1px solid var(--border);
+  background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:13px;
+  line-height:32px;text-align:center;cursor:pointer}
+#meBtn img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  display:block;border-radius:50%}
+#meBtn:hover{transform:scale(1.07);box-shadow:0 0 0 3px var(--primary-soft)}
+
+/* 依赖模组 */
+.dep-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.dep-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);
+  border-radius:10px;background:var(--hover);animation:itemIn var(--dur) var(--ease) both}
+.dep-item .di{font-size:19px;flex:none}
+.dep-item .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:13.5px;font-weight:600}
+.dep-item .dn small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+.dep-item .x{width:24px;height:24px;border:0;border-radius:50%;background:var(--border);
+  color:var(--muted);cursor:pointer;flex:none;font-size:14px;line-height:22px;text-align:center}
+.dep-item .x:hover{background:var(--danger);color:#fff}
+.dep-pick{max-height:230px;overflow:auto;margin-top:10px;border:1px solid var(--border);border-radius:10px}
+.dep-pick label{display:flex;gap:9px;align-items:center;padding:9px 11px;border-bottom:1px solid var(--border);
+  font-size:13px;cursor:pointer}
+.dep-pick label:last-child{border-bottom:0}
+.dep-pick label:has(input:checked){background:var(--primary-soft)}
+
+/* 我发布的内容 */
+.mine-item{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+.mine-item:last-child{border-bottom:0}
+.mine-item .mt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:600}
+.mine-item .md{font-size:11.5px;color:var(--muted);white-space:nowrap}
+
+/* Toast 内联 spinner 与平缓入场 */
+.toast{animation:tin var(--dur) var(--ease)}   /* 不能用 both：否则会盖住淡出时的内联 opacity */
+.toast .spinner{vertical-align:-3px;margin-right:8px}
+.toast .tx{vertical-align:middle}
+
+/* 模态框 / 遮罩 / 图片放大 */
+@keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes maskIn{from{opacity:0}to{opacity:1}}
+.modal{animation:modalIn var(--dur) var(--ease) both}
+.mask:not(.hide){animation:maskIn var(--dur) var(--ease) both}
+.lightbox{animation:maskIn var(--dur) var(--ease) both}
+.lightbox img{animation:modalIn var(--dur) var(--ease) both}
+
+/* 尊重系统「减少动态效果」 */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important}
+}
 </style>
 </head>
 <body>
@@ -282,10 +410,11 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
   <div class="dr-foot"><span id="drFoot">© 不知名社区</span></div>
 </aside>
 
-<main class="wrap" id="app"><div class="loading">加载中…</div></main>
+<main class="wrap" id="app"><div class="loading-box"><div class="spinner big"></div><div class="lt">正在加载社区…</div><div class="skeleton sk1"></div><div class="skeleton sk2"></div></div></main>
 
 <div class="mask hide" id="mask"><div class="modal" id="modalBox"></div></div>
 <div class="toast-wrap" id="toastWrap"></div>
+<div class="top-progress" id="topProgress"></div>
 <input type="file" id="filePicker" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/svg+xml" multiple hidden>
 
 <script>
@@ -295,9 +424,9 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
 /* ---------------- 基础 ---------------- */
 const $ = s => document.querySelector(s);
 const state = {
-  boot: null, me: null, route: null, page: 1, q: '',
-  postImages: [], modImage: '', modFile: null, modLoaders: [], postFormat: 'plain',
-  busy: false,
+  boot: null, me: null, route: null, page: 1, q: '', build: '',
+  postImages: [], modImage: '', modFile: null, modLoaders: [], modDeps: [], postFormat: 'plain',
+  modUploading: false, busy: false,
 };
 function fmtSize(n){
   n = Number(n) || 0;
@@ -306,13 +435,94 @@ function fmtSize(n){
   return n + ' B';
 }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function toast(msg, type){
+
+/* ---- Toast：普通调用照旧自动消失；加 loading:true 时返回可更新的句柄 ---- */
+function toast(msg, type, opts){
+  opts = opts || {};
   const el = document.createElement('div');
   el.className = 'toast ' + (type || '');
-  el.textContent = msg;
+  const spin = opts.loading ? '<span class="spinner sm light"></span>' : '';
+  el.innerHTML = spin + '<span class="tx"></span>';
+  el.querySelector('.tx').textContent = msg;
   $('#toastWrap').appendChild(el);
-  setTimeout(() => { el.style.transition='opacity .25s'; el.style.opacity='0'; }, 2400);
-  setTimeout(() => el.remove(), 2700);
+  let closed = false, timer = null;
+  const scheduleClose = (delay) => {
+    if (closed) return;
+    timer = setTimeout(() => {
+      el.style.transition = 'opacity var(--dur) var(--ease), transform var(--dur) var(--ease)';
+      el.style.opacity = '0'; el.style.transform = 'translateY(-8px)';
+      setTimeout(() => el.remove(), 540);
+      closed = true;
+    }, delay == null ? 2600 : delay);
+  };
+  const h = {
+    el,
+    set(text, cls){
+      el.querySelector('.tx').textContent = text;
+      const s = el.querySelector('.spinner'); if (s) s.remove();
+      el.className = 'toast ' + (cls || type || '');
+    },
+    done(text, cls){ h.set(text || '完成', cls || 'ok'); scheduleClose(1800); },
+    fail(text){ h.set(text || '操作失败', 'err'); scheduleClose(3600); },
+    close(){ if (timer) clearTimeout(timer); el.remove(); closed = true; },
+  };
+  if (!opts.loading) scheduleClose();
+  return h;
+}
+
+/* ---- 统一加载动画：旋转环 + 文字 + 骨架屏 ---- */
+function loadingHtml(text){
+  return `<div class="loading-box"><div class="spinner big"></div>
+    <div class="lt">${esc(text || '加载中…')}</div>
+    <div class="skeleton sk1"></div><div class="skeleton sk2"></div><div class="skeleton sk3"></div></div>`;
+}
+
+/* ---- 全局请求进度条（所有 api 请求 + 上传共用） ---- */
+let pendingReq = 0;
+function reqStart(){
+  pendingReq++;
+  const p = $('#topProgress'); if (!p) return;
+  p.classList.add('on');
+  p.style.width = pendingReq === 1 ? '22%' : '68%';
+}
+function reqEnd(){
+  pendingReq = Math.max(0, pendingReq - 1);
+  const p = $('#topProgress'); if (!p) return;
+  if (pendingReq === 0) {
+    p.style.width = '100%';
+    setTimeout(() => { if (pendingReq === 0) { p.classList.remove('on'); p.style.width = '0'; } }, 480);
+  }
+}
+
+/* ---- 带真实进度的上传（XMLHttpRequest 才能拿到 upload.onprogress） ---- */
+function uploadFile(file, headers, onProgress){
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload', true);
+    xhr.withCredentials = true;
+    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, String(v));
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total, e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      let d;
+      try { d = JSON.parse(xhr.responseText); }
+      catch { return reject(new Error('服务器返回异常（HTTP ' + xhr.status + '）')); }
+      if (!d.ok) {
+        let msg = d.error || '请求失败';
+        if (d.detail) msg += '｜' + String(d.detail).slice(0, 110);
+        if (d.build) msg += '｜版本 ' + d.build;
+        const e = new Error(msg); e.code = d.code; e.status = xhr.status;
+        e.detail = d.detail; e.build = d.build;
+        return reject(e);
+      }
+      state.build = d.build || state.build;
+      resolve(d);
+    };
+    xhr.onerror = () => reject(new Error('网络中断，上传失败'));
+    xhr.onabort = () => reject(new Error('上传已取消'));
+    xhr.send(file);
+  });
 }
 function fmtTime(ts){
   if (!ts) return '—';
@@ -336,7 +546,11 @@ async function api(path, opts){
     o.headers['Content-Type'] = 'application/json';
     o.body = JSON.stringify(o.body);
   }
-  const res = await fetch(path, o);
+  reqStart();
+  let res;
+  try { res = await fetch(path, o); }
+  catch (e) { reqEnd(); throw e; }
+  reqEnd();
   let d;
   try { d = await res.json(); } catch { throw new Error('服务器返回异常（HTTP ' + res.status + '）'); }
   if (!d.ok) {
@@ -386,6 +600,20 @@ function renderDrawer(){
     state.me = null; closeDrawer(); updateTop(); toast('已退出登录', 'ok'); go('#/community');
   };
 }
+function setTopAvatar(u){
+  const btn = $('#meBtn');
+  const initial = ((u && (u.displayName || u.username)) || '?').slice(0, 1).toUpperCase();
+  const showInitial = () => { btn.textContent = initial; };
+  const showImg = (img) => { btn.textContent = ''; btn.appendChild(img); };
+  showInitial();
+  if (!u || !u.avatar) return;
+  const img = document.createElement('img');
+  img.alt = '';
+  img.onerror = showInitial;               // 破图 → 回退首字母
+  img.onload = () => showImg(img);
+  img.src = u.avatar;
+  if (img.complete && img.naturalWidth > 0) showImg(img);   // 缓存命中
+}
 function openDrawer(){ renderDrawer(); $('#drawer').classList.add('on'); $('#drawerMask').classList.add('on'); }
 function closeDrawer(){ $('#drawer').classList.remove('on'); $('#drawerMask').classList.remove('on'); }
 function updateTop(){
@@ -394,7 +622,7 @@ function updateTop(){
   const has = !!state.me;
   $('#loginBtn').style.display = has ? 'none' : '';
   $('#meBtn').style.display = has ? '' : 'none';
-  if (has) $('#meBtn').innerHTML = avatarHtml(state.me).replace(/^<span class="avatar">|<\/span>$/g, '');
+  if (has) setTopAvatar(state.me);
   $('#drSub').textContent = has ? ('你好，' + (state.me.displayName || state.me.username)) : '登录后可发帖、评论和点赞';
   $('#drFoot').textContent = '© ' + ((state.boot && state.boot.siteName) || '不知名社区')
     + (state.build ? ' · ' + state.build : '');
@@ -473,7 +701,7 @@ function mdToHtml(src){
   return out;
 }
 
-/* ---------------- 文件上传（图片 / 模组包） ---------------- */
+/* ---------------- 文件上传（图片 / 模组包，带真实进度） ---------------- */
 // post=帖子配图 | mod=模组封面 | modfile=模组本体 | avatar=头像
 let uploadTarget = 'post';
 function pickImages(target){
@@ -497,47 +725,122 @@ $('#filePicker').addEventListener('change', async e => {
   for (const f of files) {
     if (f.size > maxMB * 1024 * 1024) { toast(`${f.name} 超过 ${maxMB}MB`, 'err'); continue; }
     if (isModFile && !/\.(jar|zip|mrpack)$/i.test(f.name)) { toast('仅支持 .jar / .zip / .mrpack', 'err'); continue; }
-    toast('正在上传 ' + f.name + (f.size > 1024 * 1024 ? '（' + fmtSize(f.size) + '，请稍候）' : ''));
+    const tip = toast('正在上传 ' + f.name + '（' + fmtSize(f.size) + '）', '', { loading:true });
+    const headers = {
+      'Content-Type': isModFile ? 'application/octet-stream' : (f.type || 'application/octet-stream'),
+      'X-File-Name': encodeURIComponent(f.name),
+      'X-Upload-Kind': isModFile ? 'mod' : 'image',
+    };
+    // 模组文件：按钮下方显示真实进度条
+    if (isModFile) { state.modUploading = true; setModProgress(0, 0, f.size, f.name); }
+    reqStart();
     try {
-      const d = await api('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': isModFile ? 'application/octet-stream' : (f.type || 'application/octet-stream'),
-          'X-File-Name': encodeURIComponent(f.name),
-          'X-Upload-Kind': isModFile ? 'mod' : 'image',
-        },
-        body: f,
+      const d = await uploadFile(f, headers, (pct, loaded, total) => {
+        if (isModFile) setModProgress(pct, loaded, total, f.name);
+        else tip.set('正在上传 ' + f.name + '　' + Math.round(pct * 100) + '%', '');
       });
       if (target === 'post') { state.postImages.push(d.url); renderUpGrid(); }
       else if (target === 'mod') { state.modImage = d.url; renderModImage(); }
-      else if (target === 'modfile') { state.modFile = { url: d.url, name: d.name || f.name, size: d.size || f.size }; renderModFile(); }
-      else if (target === 'avatar') { $('#avatarUrl').value = d.url; $('#avatarPreview').innerHTML = avatarHtml({ avatar: d.url }); toast('头像已上传，记得点保存', 'ok'); }
-      toast('上传完成', 'ok');
-    } catch (err) { toast('上传失败：' + err.message, 'err'); }
+      else if (target === 'modfile') {
+        state.modFile = { url: d.url, name: d.name || f.name, size: d.size || f.size };
+        state.modUploading = false; renderModFile();       // 完成后在按钮下方显示文件
+      }
+      else if (target === 'avatar') {
+        $('#avatarUrl').value = d.url;
+        $('#avatarPreview').innerHTML = avatarHtml({ avatar: d.url });
+      }
+      tip.done('上传完成：' + f.name);
+    } catch (err) {
+      if (isModFile) { state.modUploading = false; renderModFile(); }
+      tip.fail('上传失败：' + err.message);
+    } finally { reqEnd(); }
   }
 });
 function renderUpGrid(){
-  $('#upGrid').innerHTML = state.postImages.map((u, i) =>
-    `<div class="up-item"><img src="${esc(u)}" alt=""><button class="x" data-i="${i}">×</button></div>`).join('');
-  $('#upGrid').querySelectorAll('.x').forEach(b => b.onclick = () => { state.postImages.splice(Number(b.dataset.i),1); renderUpGrid(); });
+  const box = $('#upGrid'); if (!box) return;
+  box.innerHTML = state.postImages.map((u, i) =>
+    `<div class="up-item item-in" style="animation-delay:${i * 55}ms"><img src="${esc(u)}" alt=""><button class="x" data-i="${i}">×</button></div>`).join('');
+  box.querySelectorAll('.x').forEach(b => b.onclick = () => { state.postImages.splice(Number(b.dataset.i),1); renderUpGrid(); });
 }
 function renderModImage(){
-  $('#modImageBox').innerHTML = state.modImage
-    ? `<div class="up-item"><img src="${esc(state.modImage)}" alt=""><button class="x" id="modImgX">×</button></div>`
+  const box = $('#modImageBox'); if (!box) return;
+  box.innerHTML = state.modImage
+    ? `<div class="up-item item-in"><img src="${esc(state.modImage)}" alt=""><button class="x" id="modImgX">×</button></div>`
     : '';
   const x = $('#modImgX');
   if (x) x.onclick = () => { state.modImage = ''; renderModImage(); };
 }
+/* 模组文件上传进度条 */
+function setModProgress(pct, loaded, total, name){
+  const box = $('#modFileBox'); if (!box) return;
+  let el = box.querySelector('.upload-progress');
+  if (!el) {
+    box.innerHTML = `<div class="upload-progress">
+      <div class="up-head"><span class="spinner"></span><span class="un">正在上传模组…</span><span class="up-pct">0%</span></div>
+      <div class="up-track"><div class="up-fill"></div></div>
+      <div class="up-sub">0 B / ${fmtSize(total)}</div></div>`;
+    el = box.querySelector('.upload-progress');
+  }
+  const p = Math.max(0, Math.min(100, Math.round(pct * 100)));
+  if (name) el.querySelector('.un').textContent = '正在上传 ' + name;
+  el.querySelector('.up-pct').textContent = p + '%';
+  el.querySelector('.up-fill').style.width = p + '%';
+  el.querySelector('.up-sub').textContent = fmtSize(loaded) + ' / ' + fmtSize(total);
+}
+/* 上传完成后：按钮下方显示文件 + 删除 / 重新上传 */
 function renderModFile(){
-  const box = $('#modFileBox');
-  if (!box) return;
+  const box = $('#modFileBox'); if (!box) return;
   const f = state.modFile;
   box.innerHTML = f
-    ? `<div class="file-chip"><span class="fi">📦</span><span class="fn">${esc(f.name)}<small>${fmtSize(f.size)}</small></span>
-         <button class="x" id="modFileX" title="移除">×</button></div>`
+    ? `<div class="file-chip"><span class="fi">📦</span><span class="fn">${esc(f.name)}<small>${fmtSize(f.size)} · 上传完成</small></span>
+         <button class="x" id="modFileX" title="移除">×</button></div>
+       <div class="up-actions">
+         <button class="btn sm ghost" id="modFileRe">↻ 重新上传</button>
+         <button class="btn sm danger" id="modFileDel">🗑 删除文件</button></div>`
     : '<div class="hint">未选择文件，发布后其他人只能看到模组信息，无法下载。</div>';
-  const x = $('#modFileX');
-  if (x) x.onclick = () => { state.modFile = null; renderModFile(); };
+  const del = () => { state.modFile = null; renderModFile(); toast('已移除文件，可重新选择', 'ok'); };
+  const x = $('#modFileX'); if (x) x.onclick = del;
+  const d = $('#modFileDel'); if (d) d.onclick = del;
+  const re = $('#modFileRe'); if (re) re.onclick = () => pickImages('modfile');
+}
+
+/* ---------------- 依赖模组 ---------------- */
+function renderDeps(){
+  const box = $('#depBox'); if (!box) return;
+  box.innerHTML = state.modDeps.length
+    ? `<div class="dep-list">${state.modDeps.map((d, i) => `
+        <div class="dep-item item-in" style="animation-delay:${i * 55}ms">
+          <span class="di">🔗</span>
+          <span class="dn">${esc(d.name)}${d.url ? `<small>${esc(d.url)}</small>` : '<small>未填写链接</small>'}</span>
+          <button class="x" data-i="${i}" title="移除依赖">×</button></div>`).join('')}</div>`
+    : '<div class="hint">尚未添加依赖模组。可以选站内模组，或手动填名称与链接。</div>';
+  box.querySelectorAll('.dep-item .x').forEach(b => b.onclick = () => {
+    state.modDeps.splice(Number(b.dataset.i), 1); renderDeps();
+  });
+}
+async function addDepDialog(){
+  let items = [];
+  try { const d = await api('/api/mods?page=1'); items = d.items || []; }
+  catch (_) { items = []; }
+  const list = items.filter(x => !state.modDeps.some(d => d.url === '#/mod/' + x.id)).slice(0, 20);
+  const v = await openModal(`<h3>添加依赖模组</h3>
+    <p class="desc">可勾选站内已发布的模组，或在下方手动填写一个外部依赖。</p>
+    ${list.length ? `<div class="hint">站内模组（可多选）</div>
+      <div class="dep-pick">${list.map(x => `<label><input type="checkbox" value="${esc(x.id)}" data-n="${esc(x.name)}"> ${esc(x.name)}</label>`).join('')}</div>`
+      : '<div class="hint">站内暂时没有其它模组，可直接手动填写。</div>'}
+    <div class="field" style="margin-top:14px"><label>手动添加 · 名称</label><input class="input" id="depName" maxlength="80" placeholder="例如：Fabric API"></div>
+    <div class="field"><label>链接（可选）</label><input class="input" id="depUrl" maxlength="300" placeholder="https://… 或留空"></div>
+    <div class="modal-actions"><button class="btn" id="rCancel">取消</button><button class="btn primary" id="rOk">添加</button></div>`);
+  if (v !== 'submit') return;
+  let added = 0;
+  $('#modalBox').querySelectorAll('.dep-pick input:checked').forEach(cb => {
+    const name = cb.dataset.n || '依赖模组';
+    state.modDeps.push({ name, url: '#/mod/' + cb.value }); added++;
+  });
+  const n = $('#depName').value.trim(), u = $('#depUrl').value.trim();
+  if (n) { state.modDeps.push({ name: n, url: u }); added++; }
+  if (added) { renderDeps(); toast('已添加 ' + added + ' 个依赖', 'ok'); }
+  else toast('没有选择或填写任何依赖', 'err');
 }
 function lightbox(src){
   const d = document.createElement('div');
@@ -574,7 +877,7 @@ async function viewCommunity(){
       <button class="btn sm" id="searchBtn">搜索</button>
       ${state.q ? '<button class="btn ghost sm" id="clearQ">清除</button>' : ''}
     </div>
-    <div id="list"><div class="loading">加载中…</div></div>
+    <div id="list">${loadingHtml('加载帖子…')}</div>
     <div class="pager" id="pager"></div>
     <div id="hotBox"></div>`;
   $('#toNew').onclick = () => { if (needLogin()) go('#/new'); };
@@ -588,14 +891,14 @@ async function viewCommunity(){
 async function loadPosts(){
   const box = $('#list');
   if (!box) return;
-  box.innerHTML = '<div class="loading">加载中…</div>';
+  box.innerHTML = loadingHtml('加载中…');
   try {
     const d = await api(`/api/posts?page=${state.page}&q=${encodeURIComponent(state.q)}`);
     if (!d.items.length) {
       box.innerHTML = `<div class="card empty"><span class="big">📝</span>${state.q ? '没有找到相关帖子' : '还没有帖子，来发第一帖吧'}</div>`;
     } else {
-      box.innerHTML = d.items.map(p => `
-        <div class="card post-card" data-id="${esc(p.id)}">
+      box.innerHTML = d.items.map((p, i) => `
+        <div class="card post-card item-in" style="animation-delay:${i * 55}ms" data-id="${esc(p.id)}">
           ${p.images && p.images[0] ? `<img class="post-thumb" src="${esc(p.images[0])}" alt="" loading="lazy">` : ''}
           <div style="padding:15px 16px">
             <div class="t">${esc(p.title)}</div>
@@ -624,7 +927,7 @@ async function loadPosts(){
 
 /* ---------------- 视图：帖子详情 ---------------- */
 async function viewPost(id){
-  $('#app').innerHTML = '<div class="loading">加载中…</div>';
+  $('#app').innerHTML = loadingHtml('加载中…');
   let d;
   try { d = await api('/api/posts/' + encodeURIComponent(id)); }
   catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}<br><br><button class="btn" onclick="location.hash='#/community'">返回社区</button></div>`; return; }
@@ -639,12 +942,13 @@ async function viewPost(id){
       <div class="action-bar" style="margin:16px -18px -20px">
         <button class="btn sm ${p.liked ? 'like-btn on' : ''}" id="likeBtn">${p.liked ? '♥ 已点赞' : '♡ 点赞'} · <span id="likeNum">${fmtNum(p.likes)}</span></button>
         <button class="btn sm" id="reportBtn">⚑ 举报</button>
+        ${p.canEdit ? '<button class="btn sm" id="editPost">✎ 编辑帖子</button>' : ''}
         <span class="spacer"></span>
         <button class="btn sm ghost" onclick="location.hash='#/community'">← 返回社区</button>
       </div>
     </div>
     <div class="card"><div style="padding:14px 18px;font-weight:700">💬 评论 <span class="hint" id="ccNum">(${fmtNum(p.commentCount)})</span></div>
-      <div id="comments"><div class="loading">加载中…</div></div>
+      <div id="comments">${loadingHtml('加载评论…')}</div>
       <div class="comment-form">
         <textarea class="input" id="commentInput" placeholder="${state.me ? '写下你的评论…' : '登录后才能评论'}" ${state.me ? '' : 'disabled'}></textarea>
         <button class="btn primary" id="commentBtn" ${state.me ? '' : 'disabled'}>发送</button>
@@ -662,6 +966,7 @@ async function viewPost(id){
     } catch (e) { toast(e.message, 'err'); }
   };
   $('#reportBtn').onclick = () => reportDialog('post', p.id);
+  const ep = $('#editPost'); if (ep) ep.onclick = () => go('#/post/' + p.id + '/edit');
   $('#commentBtn').onclick = async () => {
     if (!needLogin()) return;
     const t = $('#commentInput').value.trim();
@@ -710,18 +1015,34 @@ document.addEventListener('click', e => {
   if (e.target.id === 'rOk') closeModal('submit');
 });
 
-/* ---------------- 视图：发帖 ---------------- */
-function viewNew(){
+/* ---------------- 视图：发帖 / 编辑帖子 ---------------- */
+function btnBusy(el, on, label){
+  if (!el) return;
+  if (on) { el.dataset.old = el.innerHTML; el.disabled = true; el.innerHTML = '<span class="spinner sm"></span> ' + esc(label); }
+  else { el.disabled = false; if (el.dataset.old) el.innerHTML = el.dataset.old; }
+}
+async function viewNew(editId){
   if (!needLogin()) return;
-  state.postImages = []; state.postFormat = 'plain';
+  let edit = null;
+  if (editId) {
+    $('#app').innerHTML = loadingHtml('正在读取帖子…');
+    try { const d = await api('/api/posts/' + encodeURIComponent(editId)); edit = d.post; }
+    catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    if (!edit.canEdit) { toast('只能编辑自己发布的帖子', 'err'); go('#/post/' + editId); return; }
+  }
+  state.postImages = edit ? [...(edit.images || [])] : [];
+  state.postFormat = edit ? (edit.format === 'markdown' ? 'markdown' : 'plain') : 'plain';
   $('#app').innerHTML = `
-    <div class="page-head"><h1>发布帖子</h1><span class="spacer"></span><button class="btn sm ghost" onclick="location.hash='#/community'">取消</button></div>
+    <div class="page-head"><h1>${edit ? '编辑帖子' : '发布帖子'}</h1>
+      <span class="sub">${edit ? '修改后会保留原发布时间与浏览量' : '分享点什么吧'}</span>
+      <span class="spacer"></span><button class="btn sm ghost" onclick="location.hash='${edit ? '#/post/' + edit.id : '#/community'}'">取消</button></div>
     <div class="card" style="padding:18px">
-      <div class="field"><label>标题</label><input class="input" id="pTitle" maxlength="100" placeholder="给帖子起个标题"></div>
+      <div class="field"><label>标题</label><input class="input" id="pTitle" maxlength="100"
+        value="${esc(edit ? edit.title : '')}" placeholder="给帖子起个标题"></div>
       <div class="field"><label>内容格式</label>
-        <div class="seg"><button id="fmtPlain" class="on">标准文本</button><button id="fmtMd">Markdown</button></div>
-        <div class="hint" style="margin-top:6px" id="fmtHint">标准文本会原样保留换行与空格。</div></div>
-      <div class="field"><label>正文</label><textarea class="input" id="pBody" placeholder="写点什么吧…"></textarea></div>
+        <div class="seg"><button id="fmtPlain">标准文本</button><button id="fmtMd">Markdown</button></div>
+        <div class="hint" style="margin-top:6px" id="fmtHint"></div></div>
+      <div class="field"><label>正文</label><textarea class="input" id="pBody" placeholder="写点什么吧…">${esc(edit ? edit.body : '')}</textarea></div>
       <div class="field"><label>配图（可选，最多 9 张）</label>
         <button class="btn sm" id="addImgs">＋ 选择图片</button>
         <div class="hint" style="margin-top:6px">单张不超过 ${(state.boot&&state.boot.maxUploadMB)||10}MB，图片存放在 B2 存储桶。</div>
@@ -729,7 +1050,7 @@ function viewNew(){
       <div class="field hide" id="previewBox"><label>Markdown 预览</label><div class="card article" id="mdPreview" style="padding:14px"></div></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" id="previewBtn">预览</button>
-        <button class="btn primary" id="publishBtn">发布帖子</button></div>
+        <button class="btn primary" id="publishBtn">${edit ? '保存修改' : '发布帖子'}</button></div>
     </div>`;
   $('#fmtPlain').onclick = () => setFmt('plain');
   $('#fmtMd').onclick = () => setFmt('markdown');
@@ -744,12 +1065,17 @@ function viewNew(){
     const title = $('#pTitle').value.trim(), body = $('#pBody').value.trim();
     if (title.length < 2) { toast('标题至少 2 个字', 'err'); return; }
     if (body.length < 2) { toast('内容不能为空', 'err'); return; }
-    $('#publishBtn').disabled = true;
+    btnBusy($('#publishBtn'), true, edit ? '保存中…' : '发布中…');
     try {
-      const d = await api('/api/posts', { method:'POST', body:{ title, body, format:state.postFormat, images:state.postImages } });
-      toast('发布成功', 'ok'); go('#/post/' + d.id);
-    } catch (e) { toast(e.message, 'err'); $('#publishBtn').disabled = false; }
+      const payload = { title, body, format:state.postFormat, images:state.postImages };
+      const d = edit
+        ? await api('/api/posts/' + edit.id + '/edit', { method:'POST', body:payload })
+        : await api('/api/posts', { method:'POST', body:payload });
+      toast(edit ? '修改已保存' : '发布成功', 'ok');
+      go('#/post/' + (edit ? edit.id : d.id));
+    } catch (e) { toast(e.message, 'err'); btnBusy($('#publishBtn'), false); }
   };
+  setFmt(state.postFormat);
   renderUpGrid();
 }
 function setFmt(f){
@@ -768,7 +1094,7 @@ async function viewMods(){
     <div class="card" style="padding:10px 12px;display:flex;gap:8px;margin-bottom:14px">
       <input class="input" id="modQ" placeholder="搜索模组名称或简介…">
       <button class="btn sm" id="modSearchBtn">搜索</button></div>
-    <div id="modList"><div class="loading">加载中…</div></div>
+    <div id="modList">${loadingHtml('加载模组…')}</div>
     <div class="pager" id="modPager"></div>`;
   $('#toModNew').onclick = () => { if (needLogin()) go('#/mod/new'); };
   $('#modSearchBtn').onclick = () => { state.q = $('#modQ').value.trim(); state.page = 1; loadMods(); };
@@ -777,11 +1103,11 @@ async function viewMods(){
 }
 async function loadMods(){
   const box = $('#modList'); if (!box) return;
-  box.innerHTML = '<div class="loading">加载中…</div>';
+  box.innerHTML = loadingHtml('加载中…');
   try {
     const d = await api(`/api/mods?page=${state.page}&q=${encodeURIComponent(state.q)}`);
-    box.innerHTML = d.items.length ? `<div class="mod-grid">${d.items.map(m => `
-      <div class="mod-card" data-id="${esc(m.id)}">
+    box.innerHTML = d.items.length ? `<div class="mod-grid">${d.items.map((m, i) => `
+      <div class="mod-card item-in" style="animation-delay:${i * 55}ms" data-id="${esc(m.id)}">
         <div class="mod-cover">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : '🧩'}</div>
         <div class="mod-body"><div class="n">${esc(m.name)}</div><div class="s">${esc(m.summary)}</div>
           <div class="tags">${m.hasFile ? '<span class="tag v">⬇ 可下载' + (m.fileSize ? ' · ' + fmtSize(m.fileSize) : '') + '</span>' : ''}${m.loaders.slice(0,3).map(x => `<span class="tag">${esc(x)}</span>`).join('')}${m.versions.slice(0,2).map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div>
@@ -798,7 +1124,7 @@ async function loadMods(){
   } catch (e) { box.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
 async function viewMod(id){
-  $('#app').innerHTML = '<div class="loading">加载中…</div>';
+  $('#app').innerHTML = loadingHtml('加载中…');
   try {
     const d = await api('/api/mods/' + encodeURIComponent(id)); const m = d.mod;
     $('#app').innerHTML = `<div class="card detail">
@@ -813,10 +1139,19 @@ async function viewMod(id){
         : '<div class="hint" style="margin:18px 0">该模组暂未提供可下载文件，仅展示信息。</div>'}
       <div class="field" style="margin-top:20px"><label>支持的版本</label><div class="tags">${m.versions.map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div></div>
       <div class="field"><label>支持的加载器</label><div class="tags">${m.loaders.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div></div>
+      ${(m.dependencies && m.dependencies.length) ? `<div class="field"><label>依赖模组</label>
+        <div class="dep-list">${m.dependencies.map((d, i) => `<div class="dep-item item-in" style="animation-delay:${i*55}ms">
+          <span class="di">🔗</span><span class="dn">${esc(d.name)}${d.url ? `<small>${esc(d.url)}</small>` : ''}</span>
+          ${/^#\/mod\//.test(d.url || '') ? `<a class="btn sm" href="${esc(d.url)}">查看</a>`
+            : (d.url ? `<a class="btn sm" href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">打开</a>` : '')}
+        </div>`).join('')}</div></div>` : ''}
       <div class="action-bar" style="margin:18px -18px -20px">
-        <button class="btn sm" id="mReport">⚑ 举报</button><span class="spacer"></span>
+        <button class="btn sm" id="mReport">⚑ 举报</button>
+        ${m.canEdit ? '<button class="btn sm" id="editMod">✎ 编辑模组</button>' : ''}
+        <span class="spacer"></span>
         <button class="btn sm ghost" onclick="location.hash='#/mods'">← 返回模组中心</button></div></div>`;
     $('#mReport').onclick = () => reportDialog('mod', m.id);
+    const em = $('#editMod'); if (em) em.onclick = () => go('#/mod/' + m.id + '/edit');
     const cp = $('#copyDl');
     if (cp && m.file) cp.onclick = async () => {
       try { await navigator.clipboard.writeText(m.file.url); toast('下载链接已复制', 'ok'); }
@@ -826,29 +1161,49 @@ async function viewMod(id){
   } catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
 const LOADER_OPTIONS = ['Forge','Fabric','NeoForge','Quilt','Paper','Spigot','Bukkit','Sponge','Fabric API','其他'];
-function viewModNew(){
+async function viewModNew(editId){
   if (!needLogin()) return;
-  state.modImage = ''; state.modFile = null; state.modLoaders = [];
+  let edit = null;
+  if (editId) {
+    $('#app').innerHTML = loadingHtml('正在读取模组…');
+    try { const d = await api('/api/mods/' + encodeURIComponent(editId)); edit = d.mod; }
+    catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+    if (!edit.canEdit) { toast('只能编辑自己发布的模组', 'err'); go('#/mod/' + editId); return; }
+  }
+  state.modImage   = edit ? (edit.image || '') : '';
+  state.modLoaders = edit ? [...(edit.loaders || [])] : [];
+  state.modDeps    = edit ? (edit.dependencies || []).map(d => ({ name:String(d.name||''), url:String(d.url||'') })) : [];
+  state.modFile    = edit && edit.file
+    ? { url:edit.file.url, name:edit.file.name, size:edit.file.size } : null;
+  state.modUploading = false;
   $('#app').innerHTML = `
-    <div class="page-head"><h1>发布模组</h1><span class="spacer"></span><button class="btn sm ghost" onclick="location.hash='#/mods'">取消</button></div>
+    <div class="page-head"><h1>${edit ? '编辑模组' : '发布模组'}</h1>
+      <span class="sub">${edit ? '可以改信息、换文件、增删依赖' : '分享你的 Minecraft 模组'}</span>
+      <span class="spacer"></span><button class="btn sm ghost" onclick="location.hash='${edit ? '#/mod/' + edit.id : '#/mods'}'">取消</button></div>
     <div class="card" style="padding:18px">
-      <div class="field"><label>模组名称 *</label><input class="input" id="mName" maxlength="80" placeholder="例如：不知名优化模组"></div>
-      <div class="field"><label>模组简介 *</label><textarea class="input" id="mSummary" style="min-height:110px" placeholder="介绍模组的功能、特色与使用方法…"></textarea></div>
+      <div class="field"><label>模组名称 *</label><input class="input" id="mName" maxlength="80"
+        value="${esc(edit ? edit.name : '')}" placeholder="例如：不知名优化模组"></div>
+      <div class="field"><label>模组简介 *</label><textarea class="input" id="mSummary" style="min-height:110px"
+        placeholder="介绍模组的功能、特色与使用方法…">${esc(edit ? edit.summary : '')}</textarea></div>
       <div class="field"><label>模组使用图（可选）</label>
         <button class="btn sm" id="mAddImg">＋ 上传图片</button><div class="up-grid" id="modImageBox"></div></div>
       <div class="field"><label>模组文件（可选，选了就能下载）</label>
         <button class="btn sm" id="mAddFile">📦 选择 .jar / .zip / .mrpack</button>
         <div style="margin-top:10px" id="modFileBox"></div>
         <div class="hint" style="margin-top:6px">单个不超过 ${(state.boot&&state.boot.maxModMB)||30}MB。文件与本页图片一样存进 B2，下载走同一个代理域名；文件内容哈希会写进路径，重传新版不会命中旧缓存。</div></div>
+      <div class="field"><label>依赖模组（可选）</label>
+        <button class="btn sm" id="mAddDep">＋ 添加依赖模组</button>
+        <div id="depBox"></div></div>
       <div class="field"><label>支持的版本 *（逗号分隔，最多 20 个）</label>
-        <input class="input" id="mVersions" placeholder="例如：1.21.1, 1.20.4, 1.19.2">
+        <input class="input" id="mVersions" value="${esc(edit ? (edit.versions||[]).join(', ') : '')}" placeholder="例如：1.21.1, 1.20.4, 1.19.2">
         <div class="hint" style="margin-top:5px">常用：1.21.1 / 1.20.4 / 1.20.1 / 1.19.2 / 1.18.2 / 1.16.5</div></div>
       <div class="field"><label>支持的加载器 *（可多选）</label>
-        <div class="chips" id="loaderChips">${LOADER_OPTIONS.map(x => `<span class="chip" data-v="${esc(x)}">${esc(x)}</span>`).join('')}</div></div>
-      <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="mPublish">发布模组</button></div>
+        <div class="chips" id="loaderChips">${LOADER_OPTIONS.map(x => `<span class="chip ${state.modLoaders.includes(x) ? 'on' : ''}" data-v="${esc(x)}">${esc(x)}</span>`).join('')}</div></div>
+      <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="mPublish">${edit ? '保存修改' : '发布模组'}</button></div>
     </div>`;
   $('#mAddImg').onclick = () => pickImages('mod');
   $('#mAddFile').onclick = () => pickImages('modfile');
+  $('#mAddDep').onclick = addDepDialog;
   $('#loaderChips').querySelectorAll('.chip').forEach(c => c.onclick = () => {
     const v = c.dataset.v;
     const i = state.modLoaders.indexOf(v);
@@ -862,23 +1217,51 @@ function viewModNew(){
     if (summary.length < 5) { toast('简介至少 5 个字', 'err'); return; }
     if (!versions.length) { toast('请至少填写一个支持的版本', 'err'); return; }
     if (!state.modLoaders.length) { toast('请至少选择一个加载器', 'err'); return; }
-    $('#mPublish').disabled = true;
+    btnBusy($('#mPublish'), true, edit ? '保存中…' : '发布中…');
     try {
       const f = state.modFile;
-      const d = await api('/api/mods', { method:'POST', body:{
+      const payload = {
         name, summary, image:state.modImage, versions, loaders:state.modLoaders,
-        fileUrl: f ? f.url : '', fileName: f ? f.name : '', fileSize: f ? f.size : 0 } });
-      toast('发布成功', 'ok'); go('#/mod/' + d.id);
-    } catch (e) { toast(e.message, 'err'); $('#mPublish').disabled = false; }
+        dependencies:state.modDeps,
+        fileUrl: f ? f.url : '', fileName: f ? f.name : '', fileSize: f ? f.size : 0,
+      };
+      const d = edit
+        ? await api('/api/mods/' + edit.id + '/edit', { method:'POST', body:payload })
+        : await api('/api/mods', { method:'POST', body:payload });
+      toast(edit ? '修改已保存' : '发布成功', 'ok');
+      go('#/mod/' + (edit ? edit.id : d.id));
+    } catch (e) { toast(e.message, 'err'); btnBusy($('#mPublish'), false); }
   };
   renderModImage();
   renderModFile();
+  renderDeps();
+}
+
+/* ---------------- 我发布的内容 ---------------- */
+async function renderMine(){
+  const box = $('#mineBox'); if (!box) return;
+  try {
+    const d = await api('/api/me/content');
+    const row = (x, label, base, i) => `<div class="mine-item item-in" style="animation-delay:${i * 55}ms">
+      <span class="mt">${esc(label)}</span><span class="md">${fmtTime(x.updatedAt || x.createdAt)}</span>
+      <button class="btn sm" data-go="${esc(base)}">查看</button>
+      <button class="btn sm" data-edit="${esc(base + '/edit')}">✎ 编辑</button></div>`;
+    const posts = (d.posts || []), mods = (d.mods || []);
+    box.innerHTML = (posts.length || mods.length)
+      ? `<div class="hint" style="margin-bottom:4px">📝 帖子</div>
+         ${posts.length ? posts.map((x, i) => row(x, x.title, '#/post/' + x.id, i)).join('') : '<div class="hint">暂无帖子</div>'}
+         <div class="hint" style="margin:18px 0 4px">🧩 模组</div>
+         ${mods.length ? mods.map((x, i) => row(x, x.name, '#/mod/' + x.id, i)).join('') : '<div class="hint">暂无模组</div>'}`
+      : '<div class="hint">还没有发布内容，去社区或模组中心发一个吧。</div>';
+    box.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+    box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => go(b.dataset.edit));
+  } catch (e) { box.innerHTML = `<div class="hint">加载失败：${esc(e.message)}</div>`; }
 }
 
 /* ---------------- 视图：个人中心 ---------------- */
 async function viewMe(){
   if (!needLogin()) return;
-  $('#app').innerHTML = '<div class="loading">加载中…</div>';
+  $('#app').innerHTML = loadingHtml('加载中…');
   let d;
   try { d = await api('/api/me'); }
   catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
@@ -912,7 +1295,11 @@ async function viewMe(){
         <div class="hint" style="margin-top:8px">修改后其它设备的登录状态会失效。</div></div>`
         : '<div class="section"><div class="hint">该账号通过 Prism 授权登录，不支持修改本站密码。</div></div>'}
     </div>
-    ${u.role === 'admin' ? '<div class="card" style="padding:16px"><h3 style="margin:0 0 10px">管理</h3><button class="btn sm" id="adminReports">查看举报</button><div id="reportList"></div></div>' : ''}`;
+    ${u.role === 'admin' ? '<div class="card" style="padding:16px"><h3 style="margin:0 0 10px">管理</h3><button class="btn sm" id="adminReports">查看举报</button><div id="reportList"></div></div>' : ''}
+    <div class="card" style="padding:16px"><h3 style="margin:0 0 10px">我发布的内容</h3>
+      <div class="hint" style="margin-bottom:10px">这里可以直接修改已发布的帖子与模组信息。</div>
+      <div id="mineBox">${loadingHtml('加载中…')}</div></div>`;
+  renderMine();
   $('#pickAvatar').onclick = () => pickImages('avatar');
   $('#saveProfile').onclick = async () => {
     try {
@@ -1026,11 +1413,13 @@ function renderAuthBody(){
 /* ---------------- 路由 ---------------- */
 function parseRoute(){
   const h = location.hash.replace(/^#\/?/, '') || 'community';
-  const [a, b] = h.split('/');
+  const [a, b, c] = h.split('/');
+  if (a === 'post' && b && c === 'edit') return { name:'postedit', id:b };
   if (a === 'post' && b) return { name:'post', id:b };
   if (a === 'new') return { name:'new' };
   if (a === 'mods') return { name:'mods' };
   if (a === 'mod' && b === 'new') return { name:'modnew' };
+  if (a === 'mod' && b && c === 'edit') return { name:'modedit', id:b };
   if (a === 'mod' && b) return { name:'mod', id:b };
   if (a === 'me') return { name:'me' };
   if (a === 'login') return { name:'login' };
@@ -1042,18 +1431,24 @@ async function renderRoute(){
   state.route = r;
   closeDrawer();
   if (prev !== r.name && (r.name === 'community' || r.name === 'mods')) state.q = '';
+  const app = $('#app');
+  app.classList.remove('page-anim');
   try {
     if (r.name === 'community') await viewCommunity();
     else if (r.name === 'post') await viewPost(r.id);
-    else if (r.name === 'new') viewNew();
+    else if (r.name === 'new') await viewNew();
+    else if (r.name === 'postedit') await viewNew(r.id);
     else if (r.name === 'mods') await viewMods();
     else if (r.name === 'mod') await viewMod(r.id);
-    else if (r.name === 'modnew') viewModNew();
+    else if (r.name === 'modnew') await viewModNew();
+    else if (r.name === 'modedit') await viewModNew(r.id);
     else if (r.name === 'me') await viewMe();
     else viewLogin();
   } catch (e) {
     $('#app').innerHTML = `<div class="card empty">页面加载失败：${esc(e.message)}</div>`;
   }
+  void app.offsetWidth;               // 强制重播进入动画
+  app.classList.add('page-anim');
   window.scrollTo(0, 0);
 }
 

@@ -8,7 +8,7 @@ import HTML from './index.html';
 /* ---------------- 构建标记 ----------------
    每次交付会改这一行。访问 /api/health 或 /api/diag 看 build 字段，
    就能立刻确认浏览器打到的是不是这一版，排除「改了没部署生效」。   */
-const BUILD_TAG = 'bzm-20261122-v6-diag';
+const BUILD_TAG = 'bzm-20261122-v7-editor-anim';
 let lastError = null;   // 同一 isolate 内记录最近一次 500，供 /api/diag 读取
 
 function redact(s) {
@@ -102,11 +102,12 @@ function excerpt(body, n = 140) {
    · PRAGMA 不支持或 DDL 失败时静默降级，绝不阻断正常请求
    · isolate 内缓存 + KV 标记，避免每个请求都查一次表结构           */
 const MOD_COLUMNS = [
-  ['file_url',  "TEXT NOT NULL DEFAULT ''"],
-  ['file_name', "TEXT NOT NULL DEFAULT ''"],
-  ['file_size', 'INTEGER NOT NULL DEFAULT 0'],
+  ['file_url',      "TEXT NOT NULL DEFAULT ''"],
+  ['file_name',     "TEXT NOT NULL DEFAULT ''"],
+  ['file_size',     'INTEGER NOT NULL DEFAULT 0'],
+  ['dependencies',  "TEXT NOT NULL DEFAULT '[]'"],   // 依赖模组 JSON 数组
 ];
-const MOD_SCHEMA_KEY = 'schema:mods:v2';
+const MOD_SCHEMA_KEY = 'schema:mods:v3';
 let modSchemaState = null;   // 单个 isolate 内的缓存
 
 async function probeModColumns(env) {
@@ -494,6 +495,24 @@ function safeModFileUrl(c, u) {
   return typeof u === 'string' && u.startsWith(base) && u.length < 600 && !u.includes('\n') ? u : '';
 }
 // 文件名清洗：去路径、只留 ASCII 安全字符，防止签名 URL 里出现控制字符/斜杠
+// 依赖模组：[{ name, url? }]，最多 20 项。name 必填；url 只放行 http(s) 或站内 #/mod/ 链接。
+function cleanDependencies(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const it of v.slice(0, 20)) {
+    if (!it || typeof it !== 'object') continue;
+    const name = normLine(it.name, 80);
+    if (!name) continue;
+    let url = normLine(it.url, 300);
+    if (url && !/^https?:\/\//i.test(url) && !/^#\/mod\//.test(url)) url = '';
+    out.push({ name, url });
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+// 统一判断当前用户能否编辑某条内容：作者本人或管理员
+const canEdit = (me, authorId) => !!me && (me.id === authorId || me.role === 'admin');
+
 function cleanFileName(name, ext) {
   let s = String(name || '').split(/[\\/]/).pop() || '';
   s = s.replace(/\.[^.]*$/, '');
@@ -546,8 +565,9 @@ async function listMods(env, c, page, q) {
     items: (rows.results || []).map(r => ({
       id: r.id, name: r.name, summary: r.summary, image: r.image,
       versions: parseJSON(r.versions, []), loaders: parseJSON(r.loaders, []),
+      dependencies: parseJSON(r.dependencies, []),
       hasFile: !!r.file_url, fileName: r.file_name || '', fileSize: Number(r.file_size || 0),
-      author: { username: r.username, displayName: r.display_name, avatar: r.avatar },
+      author: { id: r.author_id, username: r.username, displayName: r.display_name, avatar: r.avatar },
       views: r.views, createdAt: r.created_at,
     })),
     page, pageSize: c.pageSize, total, hasMore: page * c.pageSize < total,
@@ -630,9 +650,9 @@ async function handleApi(request, env, c, path, me) {
     });
     await step('explain_insert_mod', async () => {
       await env.DB.prepare(`EXPLAIN INSERT INTO mods
-        (id,author_id,name,summary,image,versions,loaders,file_url,file_name,file_size,views,status,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
-        .bind('x','x','x','x','','[]','[]','','',0,0,0).all();
+        (id,author_id,name,summary,image,versions,loaders,dependencies,file_url,file_name,file_size,views,status,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
+        .bind('x','x','x','x','','[]','[]','[]','','',0,0,0).all();
       return 'ok';
     });
     const bad = out.steps.filter(s => !s.ok);
@@ -830,8 +850,26 @@ async function handleApi(request, env, c, path, me) {
         commentCount: r.comment_count, liked: !!r.liked,
         createdAt: r.created_at, updatedAt: r.updated_at,
         mine: !!me && me.id === r.author_id,
+        canEdit: canEdit(me, r.author_id),
       },
     });
+  }
+  if ((m = path.match(/^\/api\/posts\/([a-f0-9-]{36})\/edit$/)) && method === 'POST') {
+    const u = await requireUser(request, env);
+    const r = await env.DB.prepare('SELECT author_id,status FROM posts WHERE id=?').bind(m[1]).first();
+    if (!r || r.status !== 'normal') throw new ApiError('帖子不存在或已隐藏', 404, 'not_found');
+    need(canEdit(u, r.author_id), '只能编辑自己发布的帖子', 403, 'forbidden');
+    const d = await readBody();
+    const title = normLine(d.title, 100), body = cleanText(d.body, 20000);
+    const format = d.format === 'markdown' ? 'markdown' : 'plain';
+    need(title.length >= 2, '标题至少 2 个字');
+    need(body.length >= 2, '内容不能为空');
+    const images = asArray(d.images, 9).map(x => safeImageUrl(env, c, x)).filter(Boolean);
+    await rateLimit(env, `edit:${u.id}`, 5);
+    const t = now();
+    await env.DB.prepare('UPDATE posts SET title=?,body=?,format=?,images=?,updated_at=? WHERE id=?')
+      .bind(title, body, format, JSON.stringify(images), t, m[1]).run();
+    return ok({ id: m[1], updatedAt: t });
   }
   if ((m = path.match(/^\/api\/posts\/([a-f0-9-]{36})\/like$/)) && method === 'POST') {
     const u = await requireUser(request, env);
@@ -919,13 +957,14 @@ async function handleApi(request, env, c, path, me) {
     const fileUrl = safeModFileUrl(c, d.fileUrl) || '';
     const fileName = normLine(d.fileName, 120);
     const fileSize = clamp(parseInt(d.fileSize, 10) || 0, 0, 60 * 1024 * 1024);
+    const dependencies = cleanDependencies(d.dependencies);
     need(!fileUrl || !!fileName, '模组文件缺少文件名');
     const id = uid(), t = now();
     await env.DB.prepare(`INSERT INTO mods
-      (id,author_id,name,summary,image,versions,loaders,file_url,file_name,file_size,views,status,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
+      (id,author_id,name,summary,image,versions,loaders,dependencies,file_url,file_name,file_size,views,status,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
       .bind(id, u.id, name, summary, image, JSON.stringify(versions), JSON.stringify(loaders),
-        fileUrl, fileName, fileSize, t, t).run();
+        JSON.stringify(dependencies), fileUrl, fileName, fileSize, t, t).run();
     return ok({ id });
   }
   if ((m = path.match(/^\/api\/mods\/([a-f0-9-]{36})$/)) && method === 'GET') {
@@ -936,10 +975,51 @@ async function handleApi(request, env, c, path, me) {
     return ok({ mod: {
       id: r.id, name: r.name, summary: r.summary, image: r.image,
       versions: parseJSON(r.versions, []), loaders: parseJSON(r.loaders, []),
+      dependencies: parseJSON(r.dependencies, []),
       file: r.file_url ? { url: r.file_url, name: r.file_name || '模组文件', size: Number(r.file_size || 0) } : null,
       author: { id: r.author_id, username: r.username, displayName: r.display_name, avatar: r.avatar },
-      views: r.views + 1, createdAt: r.created_at,
+      views: r.views + 1, createdAt: r.created_at, updatedAt: r.updated_at,
+      mine: !!me && me.id === r.author_id, canEdit: canEdit(me, r.author_id),
     } });
+  }
+  if ((m = path.match(/^\/api\/mods\/([a-f0-9-]{36})\/edit$/)) && method === 'POST') {
+    const u = await requireUser(request, env);
+    const r = await env.DB.prepare('SELECT author_id,status FROM mods WHERE id=?').bind(m[1]).first();
+    if (!r || r.status !== 'normal') throw new ApiError('模组不存在或已隐藏', 404, 'not_found');
+    need(canEdit(u, r.author_id), '只能编辑自己发布的模组', 403, 'forbidden');
+    const d = await readBody();
+    const name = normLine(d.name, 80), summary = cleanText(d.summary, 1000);
+    need(name.length >= 2, '模组名称至少 2 个字');
+    need(summary.length >= 5, '模组简介至少 5 个字');
+    const versions = asArray(d.versions, 20, 40), loaders = asArray(d.loaders, 10, 40);
+    need(versions.length > 0, '请至少填写一个支持的版本');
+    need(loaders.length > 0, '请至少选择一个加载器');
+    const image = safeImageUrl(env, c, d.image) || '';
+    const fileUrl = safeModFileUrl(c, d.fileUrl) || '';
+    const fileName = normLine(d.fileName, 120);
+    const fileSize = clamp(parseInt(d.fileSize, 10) || 0, 0, 60 * 1024 * 1024);
+    const dependencies = cleanDependencies(d.dependencies);
+    need(!fileUrl || !!fileName, '模组文件缺少文件名');
+    await rateLimit(env, `edit:${u.id}`, 5);
+    const t = now();
+    await env.DB.prepare(`UPDATE mods SET name=?,summary=?,image=?,versions=?,loaders=?,dependencies=?,
+      file_url=?,file_name=?,file_size=?,updated_at=? WHERE id=?`)
+      .bind(name, summary, image, JSON.stringify(versions), JSON.stringify(loaders),
+        JSON.stringify(dependencies), fileUrl, fileName, fileSize, t, m[1]).run();
+    return ok({ id: m[1], updatedAt: t });
+  }
+
+  /* ---- 我发布的内容（个人中心编辑入口）---- */
+  if (path === '/api/me/content' && method === 'GET') {
+    const u = await requireUser(request, env);
+    const posts = await env.DB.prepare(`SELECT id,title,created_at,updated_at FROM posts
+      WHERE author_id=? AND status='normal' ORDER BY created_at DESC LIMIT 50`).bind(u.id).all();
+    const mods = await env.DB.prepare(`SELECT id,name,created_at,updated_at FROM mods
+      WHERE author_id=? AND status='normal' ORDER BY created_at DESC LIMIT 50`).bind(u.id).all();
+    return ok({
+      posts: (posts.results || []).map(x => ({ id: x.id, title: x.title, createdAt: x.created_at, updatedAt: x.updated_at })),
+      mods: (mods.results || []).map(x => ({ id: x.id, name: x.name, createdAt: x.created_at, updatedAt: x.updated_at })),
+    });
   }
 
   /* ---- 上传（Worker 中转，前端不接触密钥、无需配 B2 CORS）----
