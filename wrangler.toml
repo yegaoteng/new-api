@@ -16,12 +16,12 @@ fallthrough = false
 [[d1_databases]]
 binding = "DB"
 database_name = "bzm-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "cc4a75f8-28fb-4a68-bc62-cba7efbee0c4"
 
 # KV：会话、邮箱验证码、OAuth state、热度去重、限流
 [[kv_namespaces]]
 binding = "KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "a2ce0e73d71c4a93b8a9360ea595e1bca2ce0e73d71c4a93b8a9360ea595e1bc"
 
 # ------------------------------------------------------------
 # 非敏感配置，可以直接写在 [vars]
@@ -36,7 +36,7 @@ SESSION_DAYS       = "30"      # 登录有效期
 
 # 站点自身域名：换成你实际绑定的域名，Prism 后台白名单必须填下面这个回调地址
 PRISM_BASE         = "https://auth.ffurry.cc.cd"
-PRISM_REDIRECT_URI = "https://community.example.com/api/auth/prism/callback"
+PRISM_REDIRECT_URI = "https://comm.ffurry.cc.cd/api/auth/prism/callback"
 
 # 发件显示名（用户指定：不知名社区）
 BREVO_FROM_NAME    = "不知名社区"
@@ -49,7 +49,7 @@ B2_PROXY_ALIAS     = "images"                  # ← 必须等于 Worker BUCKETS
 B2_PUBLIC_BASE     = "https://b.yenb.cc.cd/"   # ← 你的 CF-Proxy-B2 代理域名
 
 # 首个用这些邮箱注册的账号自动成为管理员（逗号分隔，留空则不设）
-ADMIN_EMAILS       = ""
+ADMIN_EMAILS       = "2287681747@qq.com"
 
 # 本地调试用：设为 "1" 时 /api/auth/code 会把验证码回显给前端。生产环境务必删除或设为 0
 # DEV_SHOW_CODE   = "1"
