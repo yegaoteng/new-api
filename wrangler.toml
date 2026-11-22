@@ -21,7 +21,7 @@ database_id = "cc4a75f8-28fb-4a68-bc62-cba7efbee0c4"
 # KV：会话、邮箱验证码、OAuth state、热度去重、限流
 [[kv_namespaces]]
 binding = "KV"
-id = "a2ce0e73d71c4a93b8a9360ea595e1bca2ce0e73d71c4a93b8a9360ea595e1bc"
+id = "a2ce0e73d71c4a93b8a9360ea595e1bc"
 
 # ------------------------------------------------------------
 # 非敏感配置，可以直接写在 [vars]
