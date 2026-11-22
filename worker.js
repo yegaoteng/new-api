@@ -9,7 +9,8 @@ import HTML from './index.html';
 const cfg = (env) => ({
   siteName:       env.SITE_NAME || '不知名社区',
   pageSize:       clamp(parseInt(env.PAGE_SIZE || '20', 10), 1, 50),
-  maxUploadMB:    clamp(parseInt(env.MAX_UPLOAD_MB || '10', 10), 1, 25),
+  maxUploadMB:    clamp(parseInt(env.MAX_UPLOAD_MB || '10', 10), 1, 25),   // 图片
+  maxModMB:       clamp(parseInt(env.MAX_MOD_MB || '30', 10), 1, 60),     // 模组文件（受 Workers 128MB 内存约束）
   hotDedup:       Math.max(0, parseInt(env.HOT_DEDUP_SECONDS || '300', 10) || 0),
   sessionDays:    clamp(parseInt(env.SESSION_DAYS || '30', 10), 1, 365),
   prismBase:      (env.PRISM_BASE || 'https://auth.ffurry.cc.cd').replace(/\/$/, ''),
@@ -393,9 +394,23 @@ async function b2Put(env, c, key, body, contentType) {
   }
   return `${c.publicBase}${c.proxyAlias}/${key}`;
 }
-function safeImageUrl(env, c, u) {
+function safeProxyUrl(c, u) {
   const base = `${c.publicBase}${c.proxyAlias}/`;
-  return typeof u === 'string' && u.startsWith(base) && u.length < 500 ? u : '';
+  return typeof u === 'string' && u.startsWith(base) && u.length < 600 && !u.includes('\n') ? u : '';
+}
+// 图片：只校验代理域名前缀（社区配图、模组封面、头像共用）
+function safeImageUrl(env, c, u) { return safeProxyUrl(c, u); }
+// 模组文件：额外要求落在 mods/ 前缀下，避免把图片链接塞进下载字段
+function safeModFileUrl(c, u) {
+  const base = `${c.publicBase}${c.proxyAlias}/mods/`;
+  return typeof u === 'string' && u.startsWith(base) && u.length < 600 && !u.includes('\n') ? u : '';
+}
+// 文件名清洗：去路径、只留 ASCII 安全字符，防止签名 URL 里出现控制字符/斜杠
+function cleanFileName(name, ext) {
+  let s = String(name || '').split(/[\\/]/).pop() || '';
+  s = s.replace(/\.[^.]*$/, '');
+  s = s.replace(/[^\w.-]/g, '_').replace(/^\.+/, '').slice(0, 60) || 'mod';
+  return `${s}.${ext}`;
 }
 
 /* ---------------- 组装查询 ---------------- */
@@ -443,6 +458,7 @@ async function listMods(env, c, page, q) {
     items: (rows.results || []).map(r => ({
       id: r.id, name: r.name, summary: r.summary, image: r.image,
       versions: parseJSON(r.versions, []), loaders: parseJSON(r.loaders, []),
+      hasFile: !!r.file_url, fileName: r.file_name || '', fileSize: Number(r.file_size || 0),
       author: { username: r.username, displayName: r.display_name, avatar: r.avatar },
       views: r.views, createdAt: r.created_at,
     })),
@@ -470,7 +486,7 @@ async function handleApi(request, env, c, path, me) {
         b2: !!(c.b2KeyId && c.b2AppKey && c.b2Bucket),
       },
       config: {
-        pageSize: c.pageSize, maxUploadMB: c.maxUploadMB,
+        pageSize: c.pageSize, maxUploadMB: c.maxUploadMB, maxModMB: c.maxModMB,
         proxyBase: c.publicBase, proxyAlias: c.proxyAlias,
         mailFrom: c.brevoFrom || null,        // 只显示发件邮箱，绝不回显 API Key
         mailName: c.brevoName,
@@ -484,7 +500,7 @@ async function handleApi(request, env, c, path, me) {
       me: me ? publicUser(me) : null,
       prismEnabled: !!(c.prismId && c.prismSecret && c.prismRedirect),
       mailEnabled: !!(c.brevoKey && c.brevoFrom),
-      pageSize: c.pageSize, maxUploadMB: c.maxUploadMB,
+      pageSize: c.pageSize, maxUploadMB: c.maxUploadMB, maxModMB: c.maxModMB,
       proxyBase: c.publicBase, proxyAlias: c.proxyAlias,
     });
   }
@@ -741,11 +757,16 @@ async function handleApi(request, env, c, path, me) {
     need(loaders.length > 0, '请至少选择一个加载器');
     await rateLimit(env, `mod:${u.id}`, 20);
     const image = safeImageUrl(env, c, d.image) || '';
+    const fileUrl = safeModFileUrl(c, d.fileUrl) || '';
+    const fileName = normLine(d.fileName, 120);
+    const fileSize = clamp(parseInt(d.fileSize, 10) || 0, 0, 60 * 1024 * 1024);
+    need(!fileUrl || !!fileName, '模组文件缺少文件名');
     const id = uid(), t = now();
     await env.DB.prepare(`INSERT INTO mods
-      (id,author_id,name,summary,image,versions,loaders,views,status,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,0,'normal',?,?)`)
-      .bind(id, u.id, name, summary, image, JSON.stringify(versions), JSON.stringify(loaders), t, t).run();
+      (id,author_id,name,summary,image,versions,loaders,file_url,file_name,file_size,views,status,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,0,'normal',?,?)`)
+      .bind(id, u.id, name, summary, image, JSON.stringify(versions), JSON.stringify(loaders),
+        fileUrl, fileName, fileSize, t, t).run();
     return ok({ id });
   }
   if ((m = path.match(/^\/api\/mods\/([a-f0-9-]{36})$/)) && method === 'GET') {
@@ -756,27 +777,59 @@ async function handleApi(request, env, c, path, me) {
     return ok({ mod: {
       id: r.id, name: r.name, summary: r.summary, image: r.image,
       versions: parseJSON(r.versions, []), loaders: parseJSON(r.loaders, []),
+      file: r.file_url ? { url: r.file_url, name: r.file_name || '模组文件', size: Number(r.file_size || 0) } : null,
       author: { id: r.author_id, username: r.username, displayName: r.display_name, avatar: r.avatar },
       views: r.views + 1, createdAt: r.created_at,
     } });
   }
 
-  /* ---- 图片上传（Worker 中转，前端不接触密钥、无需配 B2 CORS）---- */
+  /* ---- 上传（Worker 中转，前端不接触密钥、无需配 B2 CORS）----
+     X-Upload-Kind: image（默认，帖子配图 / 模组封面 / 头像） | mod（模组本体）
+     两者都落同一个 B2 桶、都返回代理域名链接，读取走 CF-Proxy-B2。          */
   if (path === '/api/upload' && method === 'POST') {
     const u = await requireUser(request, env);
-    const rawName = decodeURIComponent(request.headers.get('X-File-Name') || 'image.png');
+    const kind = String(request.headers.get('X-Upload-Kind') || 'image');
+    need(kind === 'image' || kind === 'mod', '上传类型不正确');
+    let rawName;
+    try { rawName = decodeURIComponent(request.headers.get('X-File-Name') || ''); }
+    catch { rawName = ''; }
     const ct = String(request.headers.get('Content-Type') || 'application/octet-stream').split(';')[0].trim();
-    const allowed = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg' };
-    need(!!allowed[ct], '仅支持 PNG / JPG / GIF / WebP / AVIF / SVG 图片', 415);
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+    let ext, putCT, key, maxMB, label;
+    if (kind === 'image') {
+      const allowed = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif',
+        'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg' };
+      ext = allowed[ct];
+      need(!!ext, '仅支持 PNG / JPG / GIF / WebP / AVIF / SVG 图片', 415);
+      putCT = ct; maxMB = c.maxUploadMB; label = '图片';
+      key = `community/${u.id}/${date}/${uid().replace(/-/g, '')}.${ext}`;
+    } else {
+      // 按扩展名判定，不信任浏览器给的 Content-Type（.jar 常被报成 octet-stream）
+      const m = String(rawName).toLowerCase().match(/\.(jar|zip|mrpack)$/);
+      need(!!m, '模组文件仅支持 .jar / .zip / .mrpack', 415);
+      ext = m[1];
+      putCT = 'application/octet-stream';
+      maxMB = c.maxModMB; label = '模组文件';
+      // key 在读完 body 后按内容哈希生成
+    }
+
     const buf = await request.arrayBuffer();
     need(buf.byteLength > 0, '文件为空');
-    need(buf.byteLength <= c.maxUploadMB * 1024 * 1024, `图片不能超过 ${c.maxUploadMB}MB`, 413);
+    need(buf.byteLength <= maxMB * 1024 * 1024, `${label}不能超过 ${maxMB}MB`, 413);
     await rateLimit(env, `upload:${u.id}`, 2);
-    const ext = allowed[ct];
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const key = `community/${u.id}/${date}/${uid().replace(/-/g, '')}.${ext}`;
-    const url = await b2Put(env, c, key, buf, ct);
-    return ok({ url, key, name: normLine(rawName, 120) });
+
+    if (kind === 'mod') {
+      const tag = toHex(await crypto.subtle.digest('SHA-256', buf)).slice(0, 12);
+      const safeName = cleanFileName(rawName, ext);
+      key = `mods/${u.id}/${date}/${tag}-${safeName}`;
+    }
+    const url = await b2Put(env, c, key, buf, putCT);
+    return ok({
+      url, key, kind,
+      name: normLine(rawName.split(/[\\/]/).pop(), 120),
+      size: buf.byteLength,
+    });
   }
 
   /* ---- 举报后台 ---- */

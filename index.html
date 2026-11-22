@@ -177,6 +177,19 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
 .up-item .x{position:absolute;top:3px;right:3px;width:20px;height:20px;border:0;border-radius:50%;
   background:rgba(0,0,0,.65);color:#fff;font-size:13px;line-height:20px;cursor:pointer;text-align:center}
 .uploading{opacity:.5}
+.file-chip{display:flex;align-items:center;gap:10px;max-width:420px;padding:10px 12px;
+  border:1px solid var(--border);border-radius:10px;background:var(--hover)}
+.file-chip .fi{font-size:20px;flex:none}
+.file-chip .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:600}
+.file-chip .fn small{display:block;color:var(--muted);font-weight:400;font-size:11.5px}
+.file-chip .x{width:22px;height:22px;border:0;border-radius:50%;background:var(--border);
+  color:var(--muted);cursor:pointer;flex:none;line-height:20px;text-align:center;font-size:14px}
+.file-chip .x:hover{background:var(--danger);color:#fff}
+.download-box{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0;
+  padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--hover)}
+.download-box .di{flex:1;min-width:180px}
+.download-box .di b{display:block;font-size:14px;word-break:break-all}
+.download-box .di small{color:var(--muted);font-size:12px}
 
 /* 个人中心 */
 .profile{display:flex;gap:16px;align-items:center;padding:18px;flex-wrap:wrap}
@@ -283,9 +296,15 @@ textarea.input{resize:vertical;min-height:170px;line-height:1.7}
 const $ = s => document.querySelector(s);
 const state = {
   boot: null, me: null, route: null, page: 1, q: '',
-  postImages: [], modImage: '', modLoaders: [], postFormat: 'plain',
+  postImages: [], modImage: '', modFile: null, modLoaders: [], postFormat: 'plain',
   busy: false,
 };
+function fmtSize(n){
+  n = Number(n) || 0;
+  if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function toast(msg, type){
   const el = document.createElement('div');
@@ -448,27 +467,45 @@ function mdToHtml(src){
   return out;
 }
 
-/* ---------------- 图片上传 ---------------- */
-let uploadTarget = 'post';   // post | mod | avatar
-function pickImages(target){ uploadTarget = target; $('#filePicker').click(); }
+/* ---------------- 文件上传（图片 / 模组包） ---------------- */
+// post=帖子配图 | mod=模组封面 | modfile=模组本体 | avatar=头像
+let uploadTarget = 'post';
+function pickImages(target){
+  uploadTarget = target;
+  const fp = $('#filePicker');
+  fp.multiple = (target === 'post');
+  fp.accept = target === 'modfile'
+    ? '.jar,.zip,.mrpack,application/java-archive,application/zip,application/octet-stream'
+    : 'image/png,image/jpeg,image/gif,image/webp,image/avif,image/svg+xml';
+  fp.click();
+}
 $('#filePicker').addEventListener('change', async e => {
-  const files = [...e.target.files];
+  const target = uploadTarget;
+  const isModFile = target === 'modfile';
+  let files = [...e.target.files];
   e.target.value = '';
   if (!files.length) return;
   if (!needLogin()) return;
-  const maxMB = (state.boot && state.boot.maxUploadMB) || 10;
+  if (isModFile) files = files.slice(0, 1);   // 模组本体只允许 1 个
+  const maxMB = (state.boot && (isModFile ? state.boot.maxModMB : state.boot.maxUploadMB)) || (isModFile ? 30 : 10);
   for (const f of files) {
     if (f.size > maxMB * 1024 * 1024) { toast(`${f.name} 超过 ${maxMB}MB`, 'err'); continue; }
-    toast('正在上传 ' + f.name);
+    if (isModFile && !/\.(jar|zip|mrpack)$/i.test(f.name)) { toast('仅支持 .jar / .zip / .mrpack', 'err'); continue; }
+    toast('正在上传 ' + f.name + (f.size > 1024 * 1024 ? '（' + fmtSize(f.size) + '，请稍候）' : ''));
     try {
       const d = await api('/api/upload', {
         method: 'POST',
-        headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(f.name) },
+        headers: {
+          'Content-Type': isModFile ? 'application/octet-stream' : (f.type || 'application/octet-stream'),
+          'X-File-Name': encodeURIComponent(f.name),
+          'X-Upload-Kind': isModFile ? 'mod' : 'image',
+        },
         body: f,
       });
-      if (uploadTarget === 'post') { state.postImages.push(d.url); renderUpGrid(); }
-      else if (uploadTarget === 'mod') { state.modImage = d.url; renderModImage(); }
-      else if (uploadTarget === 'avatar') { $('#avatarUrl').value = d.url; $('#avatarPreview').innerHTML = avatarHtml({ avatar: d.url }); toast('头像已上传，记得点保存', 'ok'); }
+      if (target === 'post') { state.postImages.push(d.url); renderUpGrid(); }
+      else if (target === 'mod') { state.modImage = d.url; renderModImage(); }
+      else if (target === 'modfile') { state.modFile = { url: d.url, name: d.name || f.name, size: d.size || f.size }; renderModFile(); }
+      else if (target === 'avatar') { $('#avatarUrl').value = d.url; $('#avatarPreview').innerHTML = avatarHtml({ avatar: d.url }); toast('头像已上传，记得点保存', 'ok'); }
       toast('上传完成', 'ok');
     } catch (err) { toast('上传失败：' + err.message, 'err'); }
   }
@@ -484,6 +521,17 @@ function renderModImage(){
     : '';
   const x = $('#modImgX');
   if (x) x.onclick = () => { state.modImage = ''; renderModImage(); };
+}
+function renderModFile(){
+  const box = $('#modFileBox');
+  if (!box) return;
+  const f = state.modFile;
+  box.innerHTML = f
+    ? `<div class="file-chip"><span class="fi">📦</span><span class="fn">${esc(f.name)}<small>${fmtSize(f.size)}</small></span>
+         <button class="x" id="modFileX" title="移除">×</button></div>`
+    : '<div class="hint">未选择文件，发布后其他人只能看到模组信息，无法下载。</div>';
+  const x = $('#modFileX');
+  if (x) x.onclick = () => { state.modFile = null; renderModFile(); };
 }
 function lightbox(src){
   const d = document.createElement('div');
@@ -730,7 +778,7 @@ async function loadMods(){
       <div class="mod-card" data-id="${esc(m.id)}">
         <div class="mod-cover">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : '🧩'}</div>
         <div class="mod-body"><div class="n">${esc(m.name)}</div><div class="s">${esc(m.summary)}</div>
-          <div class="tags">${m.loaders.slice(0,3).map(x => `<span class="tag">${esc(x)}</span>`).join('')}${m.versions.slice(0,2).map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div>
+          <div class="tags">${m.hasFile ? '<span class="tag v">⬇ 可下载' + (m.fileSize ? ' · ' + fmtSize(m.fileSize) : '') + '</span>' : ''}${m.loaders.slice(0,3).map(x => `<span class="tag">${esc(x)}</span>`).join('')}${m.versions.slice(0,2).map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div>
           <div class="hint" style="margin-top:9px">${esc(m.author.displayName)} · ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
         </div></div>`).join('')}</div>`
       : '<div class="card empty"><span class="big">🧩</span>还没有模组，来发布第一个吧</div>';
@@ -752,19 +800,29 @@ async function viewMod(id){
       <div class="by">${avatarHtml(m.author)} <b>${esc(m.author.displayName)}</b> · ${fmtTime(m.createdAt)} · 👁 ${fmtNum(m.views)}</div>
       ${m.image ? `<img src="${esc(m.image)}" style="max-height:420px;border-radius:12px;display:block;margin-bottom:16px" alt="">` : ''}
       <div class="article plain">${esc(m.summary)}</div>
+      ${m.file ? `<div class="download-box"><span style="font-size:22px">📦</span>
+        <div class="di"><b>${esc(m.file.name)}</b><small>${fmtSize(m.file.size)} · 由 B2 存储桶提供，经代理下载</small></div>
+        <a class="btn primary sm" href="${esc(m.file.url)}" target="_blank" rel="noopener noreferrer">⬇ 下载模组</a>
+        <button class="btn sm ghost" id="copyDl">复制链接</button></div>`
+        : '<div class="hint" style="margin:18px 0">该模组暂未提供可下载文件，仅展示信息。</div>'}
       <div class="field" style="margin-top:20px"><label>支持的版本</label><div class="tags">${m.versions.map(x => `<span class="tag v">${esc(x)}</span>`).join('')}</div></div>
       <div class="field"><label>支持的加载器</label><div class="tags">${m.loaders.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div></div>
       <div class="action-bar" style="margin:18px -18px -20px">
         <button class="btn sm" id="mReport">⚑ 举报</button><span class="spacer"></span>
         <button class="btn sm ghost" onclick="location.hash='#/mods'">← 返回模组中心</button></div></div>`;
     $('#mReport').onclick = () => reportDialog('mod', m.id);
+    const cp = $('#copyDl');
+    if (cp && m.file) cp.onclick = async () => {
+      try { await navigator.clipboard.writeText(m.file.url); toast('下载链接已复制', 'ok'); }
+      catch { toast('复制失败，请长按链接复制', 'err'); }
+    };
     const im = $('#app').querySelector('img[style*="max-height"]'); if (im) im.onclick = () => lightbox(im.src);
   } catch (e) { $('#app').innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
 const LOADER_OPTIONS = ['Forge','Fabric','NeoForge','Quilt','Paper','Spigot','Bukkit','Sponge','Fabric API','其他'];
 function viewModNew(){
   if (!needLogin()) return;
-  state.modImage = ''; state.modLoaders = [];
+  state.modImage = ''; state.modFile = null; state.modLoaders = [];
   $('#app').innerHTML = `
     <div class="page-head"><h1>发布模组</h1><span class="spacer"></span><button class="btn sm ghost" onclick="location.hash='#/mods'">取消</button></div>
     <div class="card" style="padding:18px">
@@ -772,6 +830,10 @@ function viewModNew(){
       <div class="field"><label>模组简介 *</label><textarea class="input" id="mSummary" style="min-height:110px" placeholder="介绍模组的功能、特色与使用方法…"></textarea></div>
       <div class="field"><label>模组使用图（可选）</label>
         <button class="btn sm" id="mAddImg">＋ 上传图片</button><div class="up-grid" id="modImageBox"></div></div>
+      <div class="field"><label>模组文件（可选，选了就能下载）</label>
+        <button class="btn sm" id="mAddFile">📦 选择 .jar / .zip / .mrpack</button>
+        <div style="margin-top:10px" id="modFileBox"></div>
+        <div class="hint" style="margin-top:6px">单个不超过 ${(state.boot&&state.boot.maxModMB)||30}MB。文件与本页图片一样存进 B2，下载走同一个代理域名；文件内容哈希会写进路径，重传新版不会命中旧缓存。</div></div>
       <div class="field"><label>支持的版本 *（逗号分隔，最多 20 个）</label>
         <input class="input" id="mVersions" placeholder="例如：1.21.1, 1.20.4, 1.19.2">
         <div class="hint" style="margin-top:5px">常用：1.21.1 / 1.20.4 / 1.20.1 / 1.19.2 / 1.18.2 / 1.16.5</div></div>
@@ -780,6 +842,7 @@ function viewModNew(){
       <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="mPublish">发布模组</button></div>
     </div>`;
   $('#mAddImg').onclick = () => pickImages('mod');
+  $('#mAddFile').onclick = () => pickImages('modfile');
   $('#loaderChips').querySelectorAll('.chip').forEach(c => c.onclick = () => {
     const v = c.dataset.v;
     const i = state.modLoaders.indexOf(v);
@@ -795,12 +858,15 @@ function viewModNew(){
     if (!state.modLoaders.length) { toast('请至少选择一个加载器', 'err'); return; }
     $('#mPublish').disabled = true;
     try {
+      const f = state.modFile;
       const d = await api('/api/mods', { method:'POST', body:{
-        name, summary, image:state.modImage, versions, loaders:state.modLoaders } });
+        name, summary, image:state.modImage, versions, loaders:state.modLoaders,
+        fileUrl: f ? f.url : '', fileName: f ? f.name : '', fileSize: f ? f.size : 0 } });
       toast('发布成功', 'ok'); go('#/mod/' + d.id);
     } catch (e) { toast(e.message, 'err'); $('#mPublish').disabled = false; }
   };
   renderModImage();
+  renderModFile();
 }
 
 /* ---------------- 视图：个人中心 ---------------- */
